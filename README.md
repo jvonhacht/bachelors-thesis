@@ -9,3 +9,5 @@ source kexjobb/bin/activate
 pip3 install requirements.txt
 ```
 
+https://code.visualstudio.com/docs/python/environments
+
