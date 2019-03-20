@@ -11,17 +11,32 @@ class Simulator:
         self.west = deque()
         self.east = deque()
 
-    def randomAdd(self):
+    def random_add(self):
         r_number = randint(0,3)
         if (r_number == 0):
-            self.north.append(Car('west'))
+            self.north.append(Car(self.get_random_direction()))
         elif (r_number == 1):
-            self.south.append(Car('west'))
+            self.south.append(Car(self.get_random_direction()))
         elif (r_number == 2):
-            self.west.append(Car('west'))
+            self.west.append(Car(self.get_random_direction()))
         elif (r_number == 3):
-            self.east.append(Car('west'))
-        pass
+            self.east.append(Car(self.get_random_direction()))
+
+    def get_random_direction(self):
+        r_number = randint(0,3)
+        if (r_number == 0):
+            return 'NORTH'
+        elif (r_number == 1):
+            return 'SOUTH'
+        elif (r_number == 2):
+            return 'WEST'
+        elif (r_number == 3):
+            return 'EAST'
+
+    def timestep(self):
+        # maybe create schedular object here
+        # and call a method, handle traffic
+        self.random_add()
 
     def __str__(self):
         string = '======================================================================'
@@ -54,9 +69,8 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    simulator.randomAdd()
-    simulator.randomAdd()
-    simulator.randomAdd()
-    simulator.randomAdd()
+    simulator.timestep()
+    simulator.timestep()
+    simulator.timestep()
+    simulator.timestep()
     print(simulator)
-    #
