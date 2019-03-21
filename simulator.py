@@ -6,10 +6,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import leastsq
 import time
+from fifo import FifoScheduler
 
 class Simulator:
     time_to_drive = 5
-    time_steps_per_hours = 600
+    time_steps_per_hours = 2400
 
     def __init__(self, *args, **kwargs):
         self.south = deque()
@@ -103,19 +104,39 @@ class Simulator:
         string += '======================================================================'
         return string
     
-    def run(self):
+    def run(self, scheduler):
         count = 0
         prev_hour = 0
         prev_size = 0
+        X = []
+        nY = []
+        sY = []
+        wY = []
+        eY = []
         while (count < self.time_steps_per_hours*24):
-            hour = round(count / self.time_steps_per_hours)
+            hour = count / self.time_steps_per_hours
+            whole_hour = round(hour)
             self.timestep(hour)
+            scheduler.schedule()
             count += 1
-            if (prev_hour != hour):
-                prev_hour = hour
-                print('number of cars hour ' + str(hour) + ' lane north: ' + str(len(self.north)-prev_size))
+
+            X.append(hour)
+            nY.append(len(self.north))
+            sY.append(len(self.south))
+            wY.append(len(self.west))
+            eY.append(len(self.east))
+            
+            if (prev_hour != whole_hour):
+                prev_hour = whole_hour
+                print('number of cars hour ' + str(whole_hour) + ' lane north: ' + str(len(self.north)-prev_size))
                 prev_size = len(self.north)
         #print(self)
+        plt.plot(X, nY, label='North')
+        plt.plot(X, sY, label='South')
+        plt.plot(X, wY, label='West')
+        plt.plot(X, eY, label='East')
+        plt.legend(loc='upper left')
+        plt.show()
 
 class Car:
     def __init__(self, direction):
@@ -128,4 +149,5 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    simulator.run()
+    fifo = FifoScheduler(simulator.north, simulator.south, simulator.west, simulator.east)
+    simulator.run(fifo)
