@@ -10,7 +10,7 @@ from fifo import FifoScheduler
 
 class Simulator:
     time_to_drive = 5
-    time_steps_per_hours = 2400
+    time_steps_per_hours = 36000
 
     def __init__(self, *args, **kwargs):
         self.south = deque()
@@ -56,17 +56,16 @@ class Simulator:
 
     def stochastic_add(self, hour):
         r_number = random.uniform(0, 1)
-        if (r_number <= self.traffic_probability(hour)):
+        if (r_number <= self.traffic_probability(hour)):  
             r_number = randint(0,3)
             if (r_number == 0):
-                self.north.append(Car(self.get_random_direction()))
-            elif (r_number == 1):
-                self.south.append(Car(self.get_random_direction()))
-            elif (r_number == 2):
                 self.west.append(Car(self.get_random_direction()))
-            elif (r_number == 3):
+            elif (r_number == 1):
+               self.south.append(Car(self.get_random_direction()))
+            elif (r_number == 2):
+                self.north.append(Car(self.get_random_direction()))
+            elif (r_number == 3):   
                 self.east.append(Car(self.get_random_direction()))
-
     def get_random_direction(self):
         r_number = randint(0,3)
         if (r_number == 0):
@@ -116,7 +115,8 @@ class Simulator:
         while (count < self.time_steps_per_hours*24):
             hour = count / self.time_steps_per_hours
             whole_hour = round(hour)
-            self.timestep(hour)
+            if (count % 25 == 0):
+                self.timestep(hour)
             scheduler.schedule()
             count += 1
 
@@ -149,5 +149,5 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    fifo = FifoScheduler(simulator.north, simulator.south, simulator.west, simulator.east)
+    fifo = FifoScheduler(simulator.north, simulator.south, simulator.west, simulator.east, simulator.time_steps_per_hours)
     simulator.run(fifo)

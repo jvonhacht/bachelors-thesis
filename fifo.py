@@ -1,34 +1,39 @@
 from random import randint
 
 class FifoScheduler:
-    def __init__(self, north, south, west, east):
+    def __init__(self, north, south, west, east, time_steps_per_hour):
         self.north = north
         self.south = south
         self.west = west
         self.east = east
+        self.interval_length = 12
+        self.count = 0
+        self.direction_north = True
 
     def schedule(self):
-        r_number = randint(0,3)
-        if (r_number == 0):
+        if (self.direction_north):
             try:
-                self.north.pop()
-            except Exception:
+                self.east.pop()                   
+            except IndexError:                
                 pass
-        elif (r_number == 1):
             try:
-                self.south.pop()
-            except Exception:
+                self.west.pop()   
+            except IndexError:                
                 pass
-        elif (r_number == 2):
+        else:
             try:
-                self.west.pop()
-            except Exception:
+                self.north.pop()                
+            except IndexError:                
                 pass
-        elif (r_number == 3):
             try:
-                self.east.pop()
-            except Exception:
+                self.south.pop()                                
+            except IndexError:                
                 pass
+        self.count += 1
 
+        if(self.count >= self.interval_length):
+            self.direction_north = not(self.direction_north)
+            self.count = 0
+ 
 if __name__ == "__main__":
     pass
