@@ -7,19 +7,46 @@ import matplotlib.pyplot as plt
 from scipy.optimize import leastsq
 import time
 from fifo import FifoScheduler
+from lane import Lane
+from direction import Direction
 
 class Simulator:
-    time_to_drive = 5
     time_steps_per_hours = 36000
+    # short refers to closest exit and long to exit furthest away
+    time_car_drive_short = 30
+    time_car_drive_straight = 50
+    time_car_drive_long = 60
+    # it takes 50% less time to pass if the car in front is moving
+    time_rolling_multiplier = 0.5
+
+    # not occupied if 0
+    occupied_upper_left = 0
+    occupied_upper_right = 0
+    occupied_lower_left = 0
+    occupied_lower_right = 0
 
     def __init__(self, *args, **kwargs):
-        self.south = deque()
-        self.north = deque()
-        self.west = deque()
-        self.east = deque()
+        self.south = Lane()
+        self.north = Lane()
+        self.west = Lane()
+        self.east = Lane()
         self.traffic_probability = self.fit_curve(False)
+        self.time = 0
 
     def fit_curve(self, graph):
+        """
+        Fit a curve to traffic data points.
+
+        Parameters
+        ----------
+        graph : bool
+            show curve graph or not
+
+        Returns
+        -------
+        function
+            function that calculates traffic probability
+        """
         points = np.array([(0, 50.), (1, 40), (2, 30), (3, 25),
                            (4, 30), (5, 35), (6, 60), (7, 150), 
                            (8, 500), (9, 520), (10, 600), (11, 600),
@@ -46,6 +73,19 @@ class Simulator:
         return f
 
     def normalize_tuple_y(self, tuple_list):
+        """
+        Normalize the second value (y value) in the tuple.
+
+        Parameters
+        ----------
+        tuple_list : list
+            list of tuples
+
+        Returns
+        -------
+        list
+            list of y normalized tuples
+        """
         max = 0
         for element in tuple_list:
             if (element[1] > max):
@@ -55,58 +95,151 @@ class Simulator:
         return tuple_list
 
     def stochastic_add(self, hour):
+        """
+        Add car to a random lane following traffic probability function.
+
+        Parameters
+        ----------
+        hour : float
+            hour of day
+        """
         r_number = random.uniform(0, 1)
         if (r_number <= self.traffic_probability(hour)):  
             r_number = randint(0,3)
             if (r_number == 0):
-                self.west.append(Car(self.get_random_direction()))
+                self.west.add_car(Car(self.get_random_direction(Direction.WEST), self.time))
             elif (r_number == 1):
-               self.south.append(Car(self.get_random_direction()))
+                self.south.add_car(Car(self.get_random_direction(Direction.SOUTH), self.time))
             elif (r_number == 2):
-                self.north.append(Car(self.get_random_direction()))
+                self.north.add_car(Car(self.get_random_direction(Direction.NORTH), self.time))
             elif (r_number == 3):   
-                self.east.append(Car(self.get_random_direction()))
-    def get_random_direction(self):
-        r_number = randint(0,3)
-        if (r_number == 0):
-            return 'NORTH'
-        elif (r_number == 1):
-            return 'SOUTH'
-        elif (r_number == 2):
-            return 'WEST'
-        elif (r_number == 3):
-            return 'EAST'
+                self.east.add_car(Car(self.get_random_direction(Direction.EAST), self.time))
 
-    def timestep(self, hour):
-        # maybe create schedular object here
-        # and call a method, handle traffic
-        self.stochastic_add(hour)
-        #time.sleep(0.2)
+    def get_random_direction(self, direction_from):
+        r_number = randint(0,2)
+        if (direction_from == Direction.NORTH):
+            if (r_number == 0):
+                return Direction.SOUTH
+            elif (r_number == 1):
+                return Direction.EAST
+            elif (r_number == 2):
+                return Direction.WEST
+        elif(direction_from == Direction.SOUTH):
+            if (r_number == 0):
+                return Direction.NORTH
+            elif (r_number == 1):
+                return Direction.EAST
+            elif (r_number == 2):
+                return Direction.WEST
+        elif(direction_from == Direction.EAST):
+            if (r_number == 0):
+                return Direction.SOUTH
+            elif (r_number == 1):
+                return Direction.NORTH
+            elif (r_number == 2):
+                return Direction.WEST
+        elif(direction_from == Direction.WEST):
+            if (r_number == 0):
+                return Direction.SOUTH
+            elif (r_number == 1):
+                return Direction.EAST
+            elif (r_number == 2):
+                return Direction.NORTH
+
+    def green(self, lane):
+        # TODO check occupancy can be false if from the same lane
+        # TODO A function that update_occupancy(from, to) w/ time variables
+        if (lane == Direction.NORTH):
+            car = self.north.peek_car()
+            # car can go
+            if car != None and (self.check_occupancy(Direction.NORTH, car.direction)):
+                print(car.direction)
+                self.north.green()
+        elif(lane == Direction.SOUTH):
+            car = self.south.peek_car()
+            # car can go
+            if (car != None and self.check_occupancy(Direction.SOUTH, car.direction)):
+                self.south.green()
+        elif(lane == Direction.WEST):
+            car = self.west.peek_car()
+            # car can go
+            if (car != None and self.check_occupancy(Direction.WEST, car.direction)):
+                self.west.green()
+        elif(lane == Direction.EAST):
+            car = self.east.peek_car()
+            # car can go
+            if (car != None and self.check_occupancy(Direction.EAST, car.direction)):
+                self.east.green()
+
+    def check_occupancy(self, direction_from, direction_to):
+        #return True
+        if (direction_from == Direction.NORTH):
+            if (direction_to == Direction.WEST):
+                return self.occupied_upper_left == 0
+            elif (direction_to == Direction.EAST):
+                return (self.occupied_upper_left == 0 and 
+                        self.occupied_lower_left == 0 and 
+                        self.occupied_lower_right == 0)
+            elif (direction_to == Direction.SOUTH):
+                return (self.occupied_upper_left == 0 and 
+                        self.occupied_lower_left == 0)
+        elif (direction_from == Direction.SOUTH):
+            if (direction_to == Direction.WEST):
+                return (self.occupied_upper_left == 0 and 
+                        self.occupied_upper_right == 0 and 
+                        self.occupied_lower_right == 0)
+            elif (direction_to == Direction.EAST):
+                return self.occupied_lower_right == 0
+            elif (direction_to == Direction.NORTH):
+                return (self.occupied_upper_right == 0 and 
+                        self.occupied_lower_right == 0)
+        elif (direction_from == Direction.WEST):
+            if (direction_to == Direction.NORTH):
+                return (self.occupied_lower_left == 0 and 
+                        self.occupied_lower_right == 0 and 
+                        self.occupied_upper_right == 0)
+            elif (direction_to == Direction.SOUTH):
+                return self.occupied_lower_left == 0
+            elif (direction_to == Direction.EAST):
+                return (self.occupied_lower_left == 0 and 
+                        self.occupied_lower_right == 0)
+        elif (direction_from == Direction.EAST):
+            if (direction_to == Direction.SOUTH):
+                return (self.occupied_upper_left == 0 and 
+                        self.occupied_upper_right == 0 and 
+                        self.occupied_lower_left == 0)
+            elif (direction_to == Direction.NORTH):
+                return self.occupied_upper_left == 0
+            elif (direction_to == Direction.WEST):
+                return (self.occupied_upper_left == 0 and 
+                        self.occupied_upper_right == 0)
+
+    def set_occupancy(self, direction):
+        # TODO
+        pass
 
     def __str__(self):
         string = '======================================================================'
         string += '\nNorth: \n'
-        for car in self.north:
+        for car in self.north.get_cars():
             string += car.__str__() + '\n'
         string += '======================================================================'
         string += '\nSouth: \n'
-        for car in self.south:
+        for car in self.south.get_cars():
             string += car.__str__() + '\n'
         string += '======================================================================'
         string += '\nWest: \n'
-        for car in self.west:
+        for car in self.west.get_cars():
             string += car.__str__() + '\n'
         string += '======================================================================'
         string += '\nEast: \n'
-        for car in self.east:
+        for car in self.east.get_cars():
             string += car.__str__() + '\n'
         string += '======================================================================'
         return string
     
     def run(self, scheduler):
         count = 0
-        prev_hour = 0
-        prev_size = 0
         X = []
         nY = []
         sY = []
@@ -114,23 +247,19 @@ class Simulator:
         eY = []
         while (count < self.time_steps_per_hours*24):
             hour = count / self.time_steps_per_hours
-            whole_hour = round(hour)
             if (count % 25 == 0):
-                self.timestep(hour)
-            scheduler.schedule()
+                self.stochastic_add(hour)
+                scheduler.schedule()
             count += 1
 
             X.append(hour)
-            nY.append(len(self.north))
-            sY.append(len(self.south))
-            wY.append(len(self.west))
-            eY.append(len(self.east))
-            
-            if (prev_hour != whole_hour):
-                prev_hour = whole_hour
-                print('number of cars hour ' + str(whole_hour) + ' lane north: ' + str(len(self.north)-prev_size))
-                prev_size = len(self.north)
+            nY.append(self.north.size())
+            sY.append(self.south.size())
+            wY.append(self.west.size())
+            eY.append(self.east.size())
+            self.time += 1
         #print(self)
+        plt.subplot(1,1,1)
         plt.plot(X, nY, label='North')
         plt.plot(X, sY, label='South')
         plt.plot(X, wY, label='West')
@@ -139,9 +268,9 @@ class Simulator:
         plt.show()
 
 class Car:
-    def __init__(self, direction):
+    def __init__(self, direction, arrival):
         self.direction = direction
-        self.arrival = datetime.now()
+        self.arrival = arrival
     
     def __str__(self):
         return '[d: ' + self.direction + ' - arr: ' + str(self.arrival) + ']'
@@ -149,5 +278,5 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    fifo = FifoScheduler(simulator.north, simulator.south, simulator.west, simulator.east, simulator.time_steps_per_hours)
+    fifo = FifoScheduler(simulator, simulator.time_steps_per_hours)
     simulator.run(fifo)

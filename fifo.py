@@ -1,11 +1,9 @@
 from random import randint
+from direction import Direction
 
 class FifoScheduler:
-    def __init__(self, north, south, west, east, time_steps_per_hour):
-        self.north = north
-        self.south = south
-        self.west = west
-        self.east = east
+    def __init__(self, simulator, time_steps_per_hour):
+        self.simulator = simulator
         self.interval_length = 12
         self.count = 0
         self.direction_north = True
@@ -13,20 +11,20 @@ class FifoScheduler:
     def schedule(self):
         if (self.direction_north):
             try:
-                self.east.pop()                   
+                self.simulator.green(Direction.EAST)                   
             except IndexError:                
                 pass
             try:
-                self.west.pop()   
+                self.simulator.green(Direction.WEST)   
             except IndexError:                
                 pass
         else:
             try:
-                self.north.pop()                
+                self.simulator.green(Direction.NORTH)                
             except IndexError:                
                 pass
             try:
-                self.south.pop()                                
+                self.simulator.green(Direction.SOUTH)                                
             except IndexError:                
                 pass
         self.count += 1
