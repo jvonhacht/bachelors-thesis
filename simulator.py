@@ -14,7 +14,7 @@ class Simulator:
     time_steps_per_hours = 36000
     # short refers to closest exit and long to exit furthest away
     time_car_drive_short = 30
-    time_car_drive_straight = 50
+    time_car_drive_straight = 45
     time_car_drive_long = 60
     # it takes 50% less time to pass if the car in front is moving
     time_rolling_multiplier = 0.5
@@ -24,6 +24,8 @@ class Simulator:
     occupied_upper_right = 0
     occupied_lower_left = 0
     occupied_lower_right = 0
+
+    previous_green = Direction.NORTH
 
     def __init__(self, *args, **kwargs):
         self.south = Lane()
@@ -152,27 +154,33 @@ class Simulator:
         if (lane == Direction.NORTH):
             car = self.north.peek_car()
             # car can go
-            if car != None and (self.check_occupancy(Direction.NORTH, car.direction)):
-                print(car.direction)
+            if car != None and (self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+                self.set_occupancy(lane, car.direction, self.previous_green == lane)
                 self.north.green()
+                self.previous_green == lane
         elif(lane == Direction.SOUTH):
             car = self.south.peek_car()
             # car can go
-            if (car != None and self.check_occupancy(Direction.SOUTH, car.direction)):
+            if (car != None and self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+                self.set_occupancy(lane, car.direction, self.previous_green == lane)
                 self.south.green()
+                self.previous_green == lane
         elif(lane == Direction.WEST):
             car = self.west.peek_car()
             # car can go
-            if (car != None and self.check_occupancy(Direction.WEST, car.direction)):
+            if (car != None and self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+                self.set_occupancy(lane, car.direction, self.previous_green == lane)
                 self.west.green()
+                self.previous_green == lane
         elif(lane == Direction.EAST):
             car = self.east.peek_car()
             # car can go
-            if (car != None and self.check_occupancy(Direction.EAST, car.direction)):
+            if (car != None and self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+                self.set_occupancy(lane, car.direction, self.previous_green == lane)
                 self.east.green()
+                self.previous_green == lane
 
     def check_occupancy(self, direction_from, direction_to):
-        #return True
         if (direction_from == Direction.NORTH):
             if (direction_to == Direction.WEST):
                 return self.occupied_upper_left == 0
@@ -214,9 +222,75 @@ class Simulator:
                 return (self.occupied_upper_left == 0 and 
                         self.occupied_upper_right == 0)
 
-    def set_occupancy(self, direction):
-        # TODO
-        pass
+    def set_occupancy(self, direction_from, direction_to, reduced):
+        multiplier = 1
+        if (reduced):
+            multiplier = self.time_rolling_multiplier
+        # literally puke, is there a neater way to do this?..
+        if (direction_from == Direction.NORTH):
+            if (direction_to == Direction.WEST):
+                if (self.time_car_drive_short*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_short*multiplier
+            elif (direction_to == Direction.EAST):
+                if (self.time_car_drive_long*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_lower_left):
+                    self.occupied_lower_left = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_lower_right):
+                    self.occupied_lower_right = self.time_car_drive_long*multiplier
+            elif (direction_to == Direction.SOUTH):
+                if (self.time_car_drive_straight*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_straight*multiplier
+                if (self.time_car_drive_straight*multiplier > self.occupied_lower_left):
+                    self.occupied_lower_left = self.time_car_drive_straight*multiplier
+        elif (direction_from == Direction.SOUTH):
+            if (direction_to == Direction.WEST):
+                if (self.time_car_drive_long*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_upper_right):
+                    self.occupied_upper_right = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_lower_right):
+                    self.occupied_lower_right = self.time_car_drive_long*multiplier
+            elif (direction_to == Direction.EAST):
+                if (self.time_car_drive_short*multiplier > self.occupied_lower_right):
+                    self.occupied_lower_right = self.time_car_drive_short*multiplier
+            elif (direction_to == Direction.NORTH):
+                if (self.time_car_drive_straight*multiplier > self.occupied_upper_right):
+                    self.occupied_upper_right = self.time_car_drive_straight*multiplier
+                if (self.time_car_drive_straight*multiplier > self.occupied_lower_right):
+                    self.occupied_lower_right = self.time_car_drive_straight*multiplier
+        elif (direction_from == Direction.WEST):
+            if (direction_to == Direction.NORTH):
+                if (self.time_car_drive_long*multiplier > self.occupied_lower_left):
+                    self.occupied_lower_left = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_lower_right):
+                    self.occupied_lower_right = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_upper_right):
+                    self.occupied_upper_right = self.time_car_drive_long*multiplier
+            elif (direction_to == Direction.SOUTH):
+                if (self.time_car_drive_short*multiplier > self.occupied_lower_left):
+                    self.occupied_lower_left = self.time_car_drive_short*multiplier
+            elif (direction_to == Direction.EAST):
+                if (self.time_car_drive_straight*multiplier > self.occupied_lower_left):
+                    self.occupied_lower_left = self.time_car_drive_straight*multiplier
+                if (self.time_car_drive_straight*multiplier > self.occupied_lower_right):
+                    self.occupied_lower_right = self.time_car_drive_straight*multiplier
+        elif (direction_from == Direction.EAST):
+            if (direction_to == Direction.SOUTH):
+                if (self.time_car_drive_long*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_upper_right):
+                    self.occupied_upper_right = self.time_car_drive_long*multiplier
+                if (self.time_car_drive_long*multiplier > self.occupied_lower_left):
+                    self.occupied_lower_left = self.time_car_drive_long*multiplier
+            elif (direction_to == Direction.NORTH):
+                if (self.time_car_drive_short*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_short*multiplier
+            elif (direction_to == Direction.WEST):
+                if (self.time_car_drive_straight*multiplier > self.occupied_upper_left):
+                    self.occupied_upper_left = self.time_car_drive_straight*multiplier
+                if (self.time_car_drive_straight*multiplier > self.occupied_upper_right):
+                    self.occupied_upper_right = self.time_car_drive_straight*multiplier
 
     def __str__(self):
         string = '======================================================================'
@@ -247,17 +321,28 @@ class Simulator:
         eY = []
         while (count < self.time_steps_per_hours*24):
             hour = count / self.time_steps_per_hours
-            if (count % 25 == 0):
+            if (count % 50 == 0):
                 self.stochastic_add(hour)
-                scheduler.schedule()
+            scheduler.schedule()
             count += 1
 
+            # save statistics
             X.append(hour)
             nY.append(self.north.size())
             sY.append(self.south.size())
             wY.append(self.west.size())
             eY.append(self.east.size())
+
+            # time passes
             self.time += 1
+            if (self.occupied_upper_left >0):
+                self.occupied_upper_left -= 1
+            if (self.occupied_upper_right >0):
+                self.occupied_upper_right -= 1
+            if (self.occupied_lower_left >0):
+                self.occupied_lower_left -= 1
+            if (self.occupied_lower_right >0):
+                self.occupied_lower_right -= 1
         #print(self)
         plt.subplot(1,1,1)
         plt.plot(X, nY, label='North')

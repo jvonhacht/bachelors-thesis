@@ -4,7 +4,7 @@ from direction import Direction
 class FifoScheduler:
     def __init__(self, simulator, time_steps_per_hour):
         self.simulator = simulator
-        self.interval_length = 12
+        self.interval_length = 600
         self.count = 0
         self.direction_north = True
 
