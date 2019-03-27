@@ -183,9 +183,13 @@ class Simulator:
     def allocate_path(self, direction_from, direction_to, car):
         if (direction_from == Direction.NORTH):
             if (direction_to == Direction.EAST):
-                if (self.occupation_matrix[0,2] == None):
-                    car.directions = [(Direction.EAST, self.time_to_move)]
-                    self.occupation_matrix[0,2] = car
+                if (self.occupation_matrix[0,1] == None and
+                    (self.occupation_matrix[1,1] == None or self.occupation_matrix[1,1].destination == Direction.EAST) and
+                    (self.occupation_matrix[1,2] == None or self.occupation_matrix[1,2].destination == Direction.EAST)):
+                    car.directions = [(Direction.SOUTH, self.time_to_move),
+                                        (Direction.EAST, self.time_to_move),
+                                        (Direction.EAST, self.time_to_move)]
+                    self.occupation_matrix[0,1] = car
                     return True
                 else:
                     return False
@@ -206,9 +210,9 @@ class Simulator:
                             elif (direction == Direction.EAST):
                                 self.occupation_matrix[i,j+1] = self.occupation_matrix[i,j]
                             elif (direction == Direction.NORTH):
-                                self.occupation_matrix[i+1,j] = self.occupation_matrix[i,j]
-                            elif (direction == Direction.SOUTH):
                                 self.occupation_matrix[i-1,j] = self.occupation_matrix[i,j]
+                            elif (direction == Direction.SOUTH):
+                                self.occupation_matrix[i+1,j] = self.occupation_matrix[i,j]
                             self.occupation_matrix[i,j] = None
         print(self.occupation_matrix)
 
@@ -239,7 +243,7 @@ class Simulator:
                     self.save_stats(hour)
             self.time += 1
             self.green_light(Direction.NORTH, 'left')
-            time.sleep(2)
+            time.sleep(1)
 
         if (stats):
             self.display_stats()
@@ -299,7 +303,7 @@ class Car:
     def move(self):
         direction = self.directions[0]
         if (self.counter >= direction[1]):
-            self.directions.pop()
+            self.directions.pop(0)
             self.counter = 0
             return True, direction[0], len(self.directions)
 
@@ -308,6 +312,9 @@ class Car:
     
     def __str__(self):
         return '[d: ' + str(self.destination) + ' - arr: ' + str(self.arrival) + ']'
+
+    def __repr__(self):
+        return str(self.destination)
 
 if __name__ == "__main__":
     simulator = Simulator()
