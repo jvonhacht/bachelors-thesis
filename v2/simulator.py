@@ -11,9 +11,9 @@ from entities import Lane
 class Simulator:
 
     # PARAMETERS
-    time_steps_per_hour = 36000
-    car_add_frequency = 50
-    time_to_move = 10
+    time_steps_per_hour = 3600
+    car_add_frequency = 5
+    time_to_move = 1
 
     def __init__(self, *args, **kwargs):
         self.traffic_probability = self.fit_curve(False)
@@ -193,7 +193,7 @@ class Simulator:
                     return True
                 else:
                     return False
-        # TODO 100 million if statements
+        # TODO 100 million if statements..... 
 
     def update_occupation_matrix(self):
         for i in range(0,3):
@@ -214,7 +214,7 @@ class Simulator:
                             elif (direction == Direction.SOUTH):
                                 self.occupation_matrix[i+1,j] = self.occupation_matrix[i,j]
                             self.occupation_matrix[i,j] = None
-        print(self.occupation_matrix)
+        #print(self.occupation_matrix)
 
     def run(self, scheduler, stats=False):
         if (stats):
@@ -232,18 +232,20 @@ class Simulator:
             self.eY_straight_right = []
             self.eY_total = []
 
+        print('day start')
         while (self.time < self.time_steps_per_hour*24):
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
 
-            self.add_direction(Direction.NORTH)
+            #self.add_direction(Direction.NORTH)
             if (self.time % self.car_add_frequency == 0):
-                #self.stochastic_add(hour)
+                self.stochastic_add(hour)
                 if (stats):
                     self.save_stats(hour)
             self.time += 1
             self.green_light(Direction.NORTH, 'left')
-            time.sleep(1)
+            #time.sleep(1)
+        print('day end')
 
         if (stats):
             self.display_stats()
