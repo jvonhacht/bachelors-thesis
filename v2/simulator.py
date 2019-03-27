@@ -1,8 +1,12 @@
 import time
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib import pyplot as plt
 import random
 from random import randint
+
+from graphics import *
 
 from entities import Direction
 from entities import Lane
@@ -26,6 +30,11 @@ class Simulator:
         self.time = 0
         # 3x3 matrix
         self.occupation_matrix = np.matrix('None,None,None; None,None,None; None,None,None', dtype=Car)
+
+        # graphics
+        self.draw = False
+        if (self.draw):
+            self.win = GraphWin('Test', 500, 500)
 
     def fit_curve(self, graph):
         """
@@ -195,7 +204,13 @@ class Simulator:
                     return False
         # TODO 100 million if statements..... 
 
+    def make_rect(self, corner, width, height):
+        corner2 = corner.clone()
+        corner2.move(width, height)
+        return Rectangle(corner, corner2)
+
     def update_occupation_matrix(self):
+        box_size = 120
         for i in range(0,3):
             for j in range(0,3):
                 car = self.occupation_matrix[i,j]
@@ -214,7 +229,11 @@ class Simulator:
                             elif (direction == Direction.SOUTH):
                                 self.occupation_matrix[i+1,j] = self.occupation_matrix[i,j]
                             self.occupation_matrix[i,j] = None
-        #print(self.occupation_matrix)
+                    if (self.draw):
+                        obj = self.make_rect(Point(50 + box_size*i, 50 + box_size*j), box_size, box_size)
+                        obj.setFill(car.color)
+                        obj.draw(self.win)
+        print(self.occupation_matrix)
 
     def run(self, scheduler, stats=False):
         if (stats):
@@ -237,14 +256,21 @@ class Simulator:
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
 
-            #self.add_direction(Direction.NORTH)
+            if (self.draw):
+                clear_screen = self.make_rect(Point(70,10), 60, 20)
+                clear_screen.setFill('white')
+                clear_screen.draw(self.win)
+                graphics_hour = Text(Point(100, 20), 'Hour: ' + str(hour.__round__(2)))
+                graphics_hour.draw(self.win)
+
+            self.add_direction(Direction.NORTH)
             if (self.time % self.car_add_frequency == 0):
-                self.stochastic_add(hour)
+                #self.stochastic_add(hour)
                 if (stats):
                     self.save_stats(hour)
             self.time += 1
             self.green_light(Direction.NORTH, 'left')
-            #time.sleep(1)
+            time.sleep(0.2)
         print('day end')
 
         if (stats):
@@ -301,6 +327,7 @@ class Car:
         self.arrival = arrival
         self.directions = []
         self.counter = 0
+        self.color = color_rgb(randint(0,255), randint(0,255), randint(0,255))
 
     def move(self):
         direction = self.directions[0]
@@ -320,4 +347,4 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    simulator.run(None, stats=True)
+    simulator.run(None, stats=False)
