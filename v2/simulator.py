@@ -117,8 +117,11 @@ class Simulator:
                 self.lanes[direction].straight_right.append(car)
 
     def get_random_direction(self, direction_from):
-        r_number = randint(0,2)
-        # quite ugly..
+        directions = [Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
+        directions.remove(direction_from)
+        return directions[randint(0,2)] 
+        # quite ugly but more effective..
+        """
         if (direction_from == Direction.NORTH):
             if (r_number == 0):
                 return Direction.SOUTH
@@ -147,18 +150,23 @@ class Simulator:
                 return Direction.EAST
             elif (r_number == 2):
                 return Direction.NORTH
+        """
 
     def run(self, scheduler, stats=False):
         if (stats):
             self.X = []
             self.nY_left = []
             self.nY_straight_right = []
+            self.nY_total = []
             self.sY_left = []
             self.sY_straight_right = []
+            self.sY_total = []
             self.wY_left = []
             self.wY_straight_right = []
+            self.wY_total = []
             self.eY_left = []
             self.eY_straight_right = []
+            self.eY_total = []
 
         while (self.time < self.time_steps_per_hour*24):
             hour = self.time / self.time_steps_per_hour
@@ -178,31 +186,43 @@ class Simulator:
         self.X.append(hour)
         self.nY_left.append(len(self.lanes[Direction.NORTH].left))
         self.nY_straight_right.append(len(self.lanes[Direction.NORTH].straight_right))
+        self.nY_total.append(len(self.lanes[Direction.NORTH].left) + len(self.lanes[Direction.NORTH].straight_right))
+
         self.wY_left.append(len(self.lanes[Direction.WEST].left))
         self.wY_straight_right.append(len(self.lanes[Direction.WEST].straight_right))
+        self.wY_total.append(len(self.lanes[Direction.WEST].left) + len(self.lanes[Direction.WEST].straight_right))
+
         self.eY_left.append(len(self.lanes[Direction.EAST].left))
         self.eY_straight_right.append(len(self.lanes[Direction.EAST].straight_right))
+        self.eY_total.append(len(self.lanes[Direction.EAST].left) + len(self.lanes[Direction.EAST].straight_right))
+
         self.sY_left.append(len(self.lanes[Direction.SOUTH].left))
         self.sY_straight_right.append(len(self.lanes[Direction.SOUTH].straight_right))
+        self.sY_total.append(len(self.lanes[Direction.SOUTH].left) + len(self.lanes[Direction.SOUTH].straight_right))
 
     def display_stats(self):
-        color_1 = 'b'
-        color_2 = 'g'
+        color_1 = '--b'
+        color_2 = '--g'
+        color_3 = 'r'
         plt.subplot(4,1,1)
         plt.plot(self.X, self.nY_left, color_1,label='North left')
         plt.plot(self.X, self.nY_straight_right, color_2,label='North straight/right')
+        plt.plot(self.X, self.nY_total, color_3,label='Total')
         plt.legend(loc='upper left')
         plt.subplot(4,1,2)
         plt.plot(self.X, self.sY_left, color_1, label='South left')
         plt.plot(self.X, self.sY_straight_right, color_2, label='South straight/right')
+        plt.plot(self.X, self.sY_total, color_3,label='Total')
         plt.legend(loc='upper left')
         plt.subplot(4,1,3)
         plt.plot(self.X, self.wY_left, color_1, label='West left')
         plt.plot(self.X, self.wY_straight_right, color_2, label='West straight/right')
+        plt.plot(self.X, self.wY_total, color_3,label='Total')
         plt.legend(loc='upper left')
         plt.subplot(4,1,4)
         plt.plot(self.X, self.eY_left, color_1, label='East left')
         plt.plot(self.X, self.eY_straight_right, color_2, label='East straight/right')
+        plt.plot(self.X, self.eY_total, color_3,label='Total')
         plt.legend(loc='upper left')
         plt.show()
 
