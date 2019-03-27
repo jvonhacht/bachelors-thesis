@@ -3,14 +3,16 @@ from datetime import datetime
 from random import randint
 import random
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from scipy.optimize import leastsq
 import time
 from fifo import FifoScheduler
 from lane import Lane
 from direction import Direction
+import tkinter
 
-class Simulator:
+class Simulator():
     time_steps_per_hours = 36000
     # short refers to closest exit and long to exit furthest away
     time_car_drive_short = 30
@@ -18,6 +20,7 @@ class Simulator:
     time_car_drive_long = 60
     # it takes 50% less time to pass if the car in front is moving
     time_rolling_multiplier = 0.5
+    time_between_rolling = 5
 
     # not occupied if 0
     occupied_upper_left = 0
@@ -25,15 +28,39 @@ class Simulator:
     occupied_lower_left = 0
     occupied_lower_right = 0
 
-    previous_green = Direction.NORTH
+    previous_green = Direction.SOUTH
 
     def __init__(self, *args, **kwargs):
-        self.south = Lane()
-        self.north = Lane()
-        self.west = Lane()
-        self.east = Lane()
+        self.south = Lane("south")
+        self.north = Lane("north")
+        self.west = Lane("west")
+        self.east = Lane("east")
         self.traffic_probability = self.fit_curve(False)
         self.time = 0
+        #self.setup_GUI()
+
+    def setup_GUI(self):
+        self.root = tkinter.Tk()
+        self.ul = tkinter.IntVar()
+        self.ul.set(0)
+        self.ur = tkinter.IntVar()
+        self.ur.set(0)
+        self.ll = tkinter.IntVar()
+        self.ll.set(0)
+        self.lr = tkinter.IntVar()
+        self.lr.set(0)
+        l = tkinter.Label(self.root,textvariable="Testing")
+        l.pack()
+        #tkinter.Label(self.root, textvariable=self.ul).grid(row = 0, column=0)
+        #tkinter.Label(self.root, textvariable=self.ur).grid(row = 0, column=1)
+        #tkinter.Label(self.root, textvariable=self.ll).grid(row = 1, column=0)
+        #tkinter.Label(self.root, textvariable=self.lr).grid(row = 1, column=1)
+
+    def set_values(self, ul, ur, ll, lr):
+        self.ul.set(ul)
+        self.ur.set(ur)
+        self.ll.set(ll)
+        self.lr.set(lr)
 
     def fit_curve(self, graph):
         """
@@ -117,6 +144,20 @@ class Simulator:
             elif (r_number == 3):   
                 self.east.add_car(Car(self.get_random_direction(Direction.EAST), self.time))
 
+    def add_direction(self, direction):
+        if (direction == Direction.WEST):
+            self.west.add_car(Car(self.get_random_direction(Direction.WEST), self.time))
+            #print('Car added west')
+        elif (direction == Direction.SOUTH):
+            self.south.add_car(Car(self.get_random_direction(Direction.SOUTH), self.time))
+            #print('Car added south')
+        elif (direction == Direction.NORTH):
+            self.north.add_car(Car(self.get_random_direction(Direction.NORTH), self.time))
+            #print('Car added north')
+        elif (direction == Direction.EAST):   
+            self.east.add_car(Car(self.get_random_direction(Direction.EAST), self.time))
+            #print('Car added east')
+
     def get_random_direction(self, direction_from):
         r_number = randint(0,2)
         if (direction_from == Direction.NORTH):
@@ -154,31 +195,54 @@ class Simulator:
         if (lane == Direction.NORTH):
             car = self.north.peek_car()
             # car can go
-            if car != None and (self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+            #print(self.previous_green)
+            #print(self.previous_green == lane)
+            #print(self.check_occupancy(lane, car.direction))
+            if car != None and ((self.check_occupancy(lane, car.direction) or self.previous_green == lane)):
                 self.set_occupancy(lane, car.direction, self.previous_green == lane)
-                self.north.green()
-                self.previous_green == lane
+                if (self.previous_green == lane): 
+                    if (self.north.time_since_green >= self.time_between_rolling):
+                        self.north.green()
+                        self.previous_green = lane
+                else:
+                    self.north.green()
+                    self.previous_green = lane
         elif(lane == Direction.SOUTH):
             car = self.south.peek_car()
             # car can go
-            if (car != None and self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+            if (car != None and (self.check_occupancy(lane, car.direction) or self.previous_green == lane)):
                 self.set_occupancy(lane, car.direction, self.previous_green == lane)
-                self.south.green()
-                self.previous_green == lane
+                if (self.previous_green == lane): 
+                    if (self.south.time_since_green >= self.time_between_rolling):
+                        self.south.green()
+                        self.previous_green = lane
+                else:
+                    self.south.green()
+                    self.previous_green = lane
         elif(lane == Direction.WEST):
             car = self.west.peek_car()
             # car can go
-            if (car != None and self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+            if (car != None and (self.check_occupancy(lane, car.direction) or self.previous_green == lane)):
                 self.set_occupancy(lane, car.direction, self.previous_green == lane)
-                self.west.green()
-                self.previous_green == lane
+                if (self.previous_green == lane): 
+                    if (self.west.time_since_green >= self.time_between_rolling):
+                        self.west.green()
+                        self.previous_green = lane
+                else:
+                    self.west.green()
+                    self.previous_green = lane
         elif(lane == Direction.EAST):
             car = self.east.peek_car()
             # car can go
-            if (car != None and self.check_occupancy(lane, car.direction) or self.previous_green == lane):
+            if (car != None and (self.check_occupancy(lane, car.direction) or self.previous_green == lane)):
                 self.set_occupancy(lane, car.direction, self.previous_green == lane)
-                self.east.green()
-                self.previous_green == lane
+                if (self.previous_green == lane): 
+                    if (self.east.time_since_green >= self.time_between_rolling):
+                        self.east.green()
+                        self.previous_green = lane
+                else:
+                    self.east.green()
+                    self.previous_green = lane
 
     def check_occupancy(self, direction_from, direction_to):
         if (direction_from == Direction.NORTH):
@@ -320,9 +384,17 @@ class Simulator:
         wY = []
         eY = []
         while (count < self.time_steps_per_hours*24):
+            #time.sleep(2)
             hour = count / self.time_steps_per_hours
-            if (count % 50 == 0):
-                self.stochastic_add(hour)
+            #self.add_direction(Direction.SOUTH)
+            if (count % 20 == 0):
+                #self.stochastic_add(hour)
+                self.add_direction(Direction.SOUTH)
+                self.add_direction(Direction.NORTH)
+                self.add_direction(Direction.WEST)
+                self.add_direction(Direction.EAST)
+                pass
+            #self.green(Direction.SOUTH)
             scheduler.schedule()
             count += 1
 
@@ -333,17 +405,32 @@ class Simulator:
             wY.append(self.west.size())
             eY.append(self.east.size())
 
+            """
+            self.set_values(self.occupied_upper_left, self.occupied_upper_right, 
+                            self.occupied_lower_left, self.occupied_lower_right)
+            self.root.update_idletasks()
+            """
+
             # time passes
             self.time += 1
-            if (self.occupied_upper_left >0):
+            if (self.occupied_upper_left > 0):
                 self.occupied_upper_left -= 1
-            if (self.occupied_upper_right >0):
+            if (self.occupied_upper_right > 0):
                 self.occupied_upper_right -= 1
-            if (self.occupied_lower_left >0):
+            if (self.occupied_lower_left > 0):
                 self.occupied_lower_left -= 1
-            if (self.occupied_lower_right >0):
+            if (self.occupied_lower_right >  0):
                 self.occupied_lower_right -= 1
-        #print(self)
+            self.north.update()
+            self.south.update()
+            self.west.update()
+            self.east.update()
+
+            #print('upper left: ' + str(self.occupied_upper_left))
+            #print('upper right: ' + str(self.occupied_upper_right))
+            #print('lower left: ' + str(self.occupied_lower_left))
+            #print('lower right: ' + str(self.occupied_lower_right))
+
         plt.subplot(1,1,1)
         plt.plot(X, nY, label='North')
         plt.plot(X, sY, label='South')
@@ -358,7 +445,7 @@ class Car:
         self.arrival = arrival
     
     def __str__(self):
-        return '[d: ' + self.direction + ' - arr: ' + str(self.arrival) + ']'
+        return '[d: ' + str(self.direction) + ' - arr: ' + str(self.arrival) + ']'
 
 
 if __name__ == "__main__":
