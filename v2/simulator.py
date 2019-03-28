@@ -11,6 +11,8 @@ from graphics import *
 from entities import Direction
 from entities import Lane
 
+from fixed_scheduler import FixedScheduler
+
 
 class Simulator:
 
@@ -56,7 +58,7 @@ class Simulator:
         }
 
         # graphics
-        self.draw = True
+        self.draw = False
         if (self.draw):
             self.win = GraphWin('Test', 500, 500)
 
@@ -137,16 +139,16 @@ class Simulator:
             direction = None
             if (r_number == 0):
                 direction = Direction.WEST
-                car = Car(self.get_random_direction(direction), self.time, self.time_to_move)  
+                car = Car(self.get_random_direction(direction), self.time, self.time_to_move, Direction.WEST)  
             elif (r_number == 1):
                 direction = Direction.EAST
-                car = Car(self.get_random_direction(direction), self.time, self.time_to_move)  
+                car = Car(self.get_random_direction(direction), self.time, self.time_to_move, Direction.EAST)  
             elif (r_number == 2):
                 direction = Direction.SOUTH
-                car = Car(self.get_random_direction(direction), self.time, self.time_to_move)  
+                car = Car(self.get_random_direction(direction), self.time, self.time_to_move, Direction.SOUTH)  
             elif (r_number == 3):   
                 direction = Direction.NORTH
-                car = Car(self.get_random_direction(direction), self.time, self.time_to_move)  
+                car = Car(self.get_random_direction(direction), self.time, self.time_to_move, Direction.NORTH)  
 
             if (car.destination == self.lanes[direction].left_turn):
                 self.lanes[direction].left.append(car)
@@ -154,7 +156,7 @@ class Simulator:
                 self.lanes[direction].straight_right.append(car)
 
     def add_direction(self, direction):
-        car = Car(self.get_random_direction(direction), self.time, self.time_to_move) 
+        car = Car(self.get_random_direction(direction), self.time, self.time_to_move, direction) 
         #print('Added: ' + str(direction) + str(car))  
 
         if (car.destination == self.lanes[direction].left_turn):
@@ -215,37 +217,28 @@ class Simulator:
                     car = self.lanes[direction].straight_right.pop()
 
     def allocate_path(self, direction_from, direction_to, car):
-        """
-        if (direction_from == Direction.NORTH):
-            if (direction_to == Direction.EAST):
-                if (self.occupation_matrix[0,1] == None and
-                    (self.occupation_matrix[1,1] == None or self.occupation_matrix[1,1].destination == Direction.EAST) and
-                    (self.occupation_matrix[1,2] == None or self.occupation_matrix[1,2].destination == Direction.EAST)):
-                    car.directions = [(Direction.SOUTH, self.time_to_move),
-                                        (Direction.EAST, self.time_to_move),
-                                        (Direction.EAST, self.time_to_move)]
-                    self.occupation_matrix[0,1] = car
-                    return True
-                else:
-                    return False"""
         car_instructions = self.matrix_instructions[direction_from][direction_to]
-        print('dir: ' + str(direction_from) + " to: " + str(direction_to))
-        print (car_instructions)
         empty = True
+        count = 0
         for instruction in car_instructions:
-            if(self.occupation_matrix[instruction[0], instruction[1]] != None):
+            cell = self.occupation_matrix[instruction[0], instruction[1]]
+            if (isinstance(cell, dict)):
+                if(cell['car'].destination == direction_to and cell['car'].destination_from == direction_from):
+                    continue
+            elif(isinstance(cell, Car)):
+                if (cell.destination_from == direction_from and cell.destination == direction_to and count != 0):
+                    continue
+            if (cell != None):
                 empty = False
-        print(empty)
+            count += 1
         if (empty):
             car_copy = car_instructions.copy()
             first = car_copy.pop(0)
-            print(first)
-            print(car_copy)
             car.directions = car_copy
             self.occupation_matrix[first[0], first[1]] = car
-            for instruction in car_instructions:
-                #self.occupation_matrix[instruction[0], instruction[1]] = car
-                pass
+            for instruction in car_copy:
+                if (self.occupation_matrix[instruction[0], instruction[1]] == None):
+                    self.occupation_matrix[instruction[0], instruction[1]] = {'car': car}
             return True
         else:
             return False
@@ -257,10 +250,16 @@ class Simulator:
 
     def update_occupation_matrix(self):
         box_size = 120
-        for j in range(0,3):
-            for i in range(0,3):
+        for i in range(0,3):
+            for j in range(0,3):
                 car = self.occupation_matrix[i,j]
-                if (car != None and not(isinstance(car, int))):
+                if (car != None and not(isinstance(car, dict))):
+                    # refill the path, might be removed if car in front
+                    for path in car.directions:
+                        cell = self.occupation_matrix[path[0], path[1]]
+                        if (cell == None):
+                            self.occupation_matrix[path[0], path[1]] = {'car': car}
+                    # move the car
                     moved, direction, moves_left = car.move()
                     if (moved):
                         if (moves_left == 0):
@@ -270,16 +269,22 @@ class Simulator:
                             self.occupation_matrix[i,j] = None
                 if (self.draw):
                     if (car == None):
-                        obj = self.make_rect(Point(50 + box_size*i, 50 + box_size*j), box_size, box_size)
+                        obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
                         obj.setFill('white')
                         obj.draw(self.win)
+                    elif(isinstance(car, dict)):
+                        obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
+                        obj.setFill('grey')
+                        obj.draw(self.win)
+                        obj_destination = Text(Point(50 + box_size*j + box_size/2, 50 + box_size*i + box_size/2), str(car['car'].destination))
+                        obj_destination.draw(self.win)
                     else:
-                        obj = self.make_rect(Point(50 + box_size*i, 50 + box_size*j), box_size, box_size)
+                        obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
                         obj.setFill(car.color)
                         obj.draw(self.win)
-                        obj_destination = Text(Point(50 + box_size*i + box_size/2, 50 + box_size*j + box_size/2), str(car.destination))
+                        obj_destination = Text(Point(50 + box_size*j + box_size/2, 50 + box_size*i + box_size/2), str(car.destination))
                         obj_destination.draw(self.win)
-        print(self.occupation_matrix)
+        #print(self.occupation_matrix)
 
     def run(self, scheduler, stats=False):
         if (stats):
@@ -308,22 +313,14 @@ class Simulator:
                 clear_screen.draw(self.win)
                 graphics_hour = Text(Point(100, 20), 'Hour: ' + str(hour.__round__(2)))
                 graphics_hour.draw(self.win)
-                
-            self.add_direction(Direction.SOUTH)
-            #self.add_direction(Direction.WEST)
-            #self.add_direction(Direction.EAST)
-            #self.stochastic_add(hour)
+
             if (self.time % self.car_add_frequency == 0):
-                #self.stochastic_add(hour)
+                self.stochastic_add(hour)
                 if (stats):
                     self.save_stats(hour)
+
+            scheduler.schedule()
             self.time += 1
-            self.green_light(Direction.SOUTH, 'straight_right')
-            self.green_light(Direction.SOUTH, 'left')
-            #self.green_light(Direction.SOUTH, 'straight_right')
-            #self.green_light(Direction.EAST, 'straight_right')
-            #self.green_light(Direction.WEST, 'straight_right')
-            time.sleep(1)
         print('day end')
 
         if (stats):
@@ -375,7 +372,8 @@ class Simulator:
         plt.show()
 
 class Car:
-    def __init__(self, destination, arrival, time_per_square):
+    def __init__(self, destination, arrival, time_per_square, destination_from):
+        self.destination_from = destination_from
         self.destination = destination
         self.arrival = arrival
         self.directions = []
@@ -385,15 +383,12 @@ class Car:
 
     def move(self):
         if (self.counter >= self.time_per_square):
-            print(self.directions)
             if (len(self.directions) == 0):
                 self.counter = 0
-                print('REMOVE CAR')
                 return True, None, 0
             else:
                 direction = self.directions.pop(0)
                 self.counter = 0
-                print('DRIVE TO: ' + str(direction))
                 return True, direction, len(self.directions)+1
         self.counter += 1
         return False, None, len(self.directions)
@@ -406,4 +401,5 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    simulator.run(None, stats=True)
+    scheduler = FixedScheduler(simulator)
+    simulator.run(scheduler, stats=True)
