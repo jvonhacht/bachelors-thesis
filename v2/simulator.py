@@ -18,10 +18,10 @@ class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 3600
-    car_add_frequency = 5
+    car_add_frequency = 3
     time_to_move = 1    
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, draw=False, stats=False, *args, **kwargs):
         self.traffic_probability = self.fit_curve(False)
         self.lanes = {
             Direction.NORTH: Lane('North', Direction.EAST),
@@ -56,9 +56,9 @@ class Simulator:
                 Direction.EAST: [(2,0),(2,1),(2,2)],
             }
         }
-
+        self.stats = stats
         # graphics
-        self.draw = False
+        self.draw = draw
         if (self.draw):
             self.win = GraphWin('Test', 500, 500)
 
@@ -286,8 +286,8 @@ class Simulator:
                         obj_destination.draw(self.win)
         #print(self.occupation_matrix)
 
-    def run(self, scheduler, stats=False):
-        if (stats):
+    def run(self, scheduler):
+        if (self.stats):
             self.X = []
             self.nY_left = []
             self.nY_straight_right = []
@@ -316,14 +316,14 @@ class Simulator:
 
             if (self.time % self.car_add_frequency == 0):
                 self.stochastic_add(hour)
-                if (stats):
+                if (self.stats):
                     self.save_stats(hour)
 
             scheduler.schedule()
             self.time += 1
         print('day end')
 
-        if (stats):
+        if (self.stats):
             self.display_stats()
 
 
@@ -400,6 +400,6 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator()
-    scheduler = FixedScheduler(simulator)
-    simulator.run(scheduler, stats=True)
+    simulator = Simulator(stats=True)
+    scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
+    simulator.run(scheduler)
