@@ -27,6 +27,7 @@ class DQNAgent:
 
         model.add(Dense(75, input_dim=self.state_size, activation='relu'))
         model.add(Dense(50, activation='relu'))
+        #model.add(Dense(50, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
 
         model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
@@ -59,8 +60,14 @@ class DQNAgent:
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])
 
+    def load(self, name):
+        self.model.load_weights(name)
+
+    def save(self, name):
+        self.model.save_weights(name)
+
 if __name__ == "__main__":
-    env = Simulator()
+    env = Simulator(5, traffic='heavy')
     agent = DQNAgent(25, 8)
     episodes = 1000
     batch_size = 32
@@ -71,9 +78,10 @@ if __name__ == "__main__":
         state = env.reset()
         state = np.reshape(state, [1, 25])
 
-        for time_step in range(env.time_steps_per_hour*24):
+        for time_step in range(int(env.time_steps_per_hour/60*5)):
             start = time.time()
             action = agent.act(state)
+            #print(action)
             next_state, reward, done = env.step(action)
             next_state = np.reshape(next_state, [1, 25])
 
@@ -92,4 +100,6 @@ if __name__ == "__main__":
             if len(agent.memory) > batch_size:
                 agent.replay(batch_size)
             end = time.time()
-            print('step' + str(time_step) + ': ' + str(end - start))
+            #print('step' + str(time_step) + ': ' + str(end - start))
+        if (e % 10 == 0):
+            agent.save("./save/cartpole-dqn.h5")
