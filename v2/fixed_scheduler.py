@@ -9,17 +9,25 @@ class FixedScheduler:
     def schedule(self):
         if (self.count >= 0):
             if (self.count < self.period/4):
-                self.simulator.green_light(Direction.SOUTH, 'left')
-                self.simulator.green_light(Direction.SOUTH, 'straight_right')
+                if (self.count % 2 == 1):
+                    self.simulator.step(0)
+                else:
+                    self.simulator.step(1)
             elif (self.count >= self.period/4 and self.count < self.period/2):
-                self.simulator.green_light(Direction.NORTH, 'left')
-                self.simulator.green_light(Direction.NORTH, 'straight_right')
+                if (self.count % 2 == 1):
+                    self.simulator.step(2)
+                else:
+                    self.simulator.step(3)
             elif (self.count >= self.period/2 and self.count < self.period/4*3):
-                self.simulator.green_light(Direction.WEST, 'left')
-                self.simulator.green_light(Direction.WEST, 'straight_right')
+                if (self.count % 2 == 1):
+                    self.simulator.step(4)
+                else:
+                    self.simulator.step(5)
             elif (self.count >= self.period/4*3 and self.count < self.period):
-                self.simulator.green_light(Direction.EAST, 'left')
-                self.simulator.green_light(Direction.EAST, 'straight_right')
+                if (self.count % 2 == 1):
+                    self.simulator.step(6)
+                else:
+                    self.simulator.step(7)
             else:
                 self.count = -4
         self.count += 1

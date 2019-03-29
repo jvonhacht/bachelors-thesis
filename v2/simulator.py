@@ -17,9 +17,9 @@ from fixed_scheduler import FixedScheduler
 class Simulator:
 
     # PARAMETERS
-    time_steps_per_hour = 3600
-    car_add_frequency = 3
-    time_to_move = 1    
+    time_steps_per_hour = 7200
+    car_add_frequency = 6
+    time_to_move = 2
 
     def __init__(self, draw=False, stats=False, *args, **kwargs):
         self.traffic_probability = self.fit_curve(False)
@@ -64,8 +64,10 @@ class Simulator:
 
         # variables for average waiting time
         self.waiting_time = []
-        self.waiting_time_x = []
+        self.waiting_time_num = 0
         self.passed_cars = 0
+
+        self.actions = np.array([0,1,2,3,4,5,6,7])
 
     def reset(self):
         self.lanes = {
@@ -306,7 +308,9 @@ class Simulator:
             count += 1
         if (empty):
             self.waiting_time.append(self.time - car.arrival)
-            self.waiting_time_x.append(self.time)
+            self.waiting_time_num += (self.time - car.arrival)
+            self.passed_cars += 1
+
             car_copy = car_instructions.copy()
             first = car_copy.pop(0)
             car.directions = car_copy
@@ -361,6 +365,34 @@ class Simulator:
                         obj_destination.draw(self.win)
         #print(self.occupation_matrix)
 
+    def step(self, action):
+        self.update_occupation_matrix()
+        if (self.time % self.car_add_frequency == 0):
+            hour = self.time / self.time_steps_per_hour
+            self.stochastic_add(hour)
+                
+        if (action == 0):
+            self.green_light(Direction.NORTH, 'left')
+        elif (action == 1):
+            self.green_light(Direction.NORTH, 'straight_right')
+        elif (action == 2):
+            self.green_light(Direction.SOUTH, 'left')
+        elif (action == 3):
+            self.green_light(Direction.SOUTH, 'straight_right')
+        elif (action == 4):
+            self.green_light(Direction.WEST, 'left')
+        elif (action == 5):
+            self.green_light(Direction.WEST, 'straight_right')
+        elif (action == 6):
+            self.green_light(Direction.EAST, 'left')
+        elif (action == 7):
+            self.green_light(Direction.EAST, 'straight_right')
+        self.time += 1
+        if (self.time >= self.time_steps_per_hour*24):
+            return self.get_state(), self.passed_cars, True
+        else:
+            return self.get_state(), self.passed_cars, False
+
     def run(self, scheduler):
         if (self.stats):
             self.X = []
@@ -382,7 +414,6 @@ class Simulator:
         while (self.time < self.time_steps_per_hour*24):
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
-            print(self.get_state())
 
             if (self.draw):
                 clear_screen = self.make_rect(Point(70,10), 60, 20)
@@ -391,12 +422,12 @@ class Simulator:
                 graphics_hour = Text(Point(100, 20), 'Hour: ' + str(hour.__round__(2)))
                 graphics_hour.draw(self.win)
 
-            if (self.time % self.car_add_frequency == 0):
-                self.stochastic_add(hour)
-                if (self.stats):
-                    self.save_stats(hour)
+            self.step(scheduler.schedule())
 
-            scheduler.schedule()
+            self.time -= 1
+            if (self.time % self.car_add_frequency == 0 and self.stats):
+                self.save_stats(hour)
+
             self.time += 1
         print('day end')
 
@@ -439,8 +470,8 @@ class Simulator:
         combined_straight = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_straight_right,
             self.sY_straight_right, self.eY_straight_right, self.wY_straight_right)))
         plt.plot(self.X, combined_total, color_3,label='Total')
-        plt.plot(self.X, combined_left, color_1,label='North left')
-        plt.plot(self.X, combined_straight, color_2,label='North straight/right')
+        plt.plot(self.X, combined_left, color_1,label='Left turners')
+        plt.plot(self.X, combined_straight, color_2,label='Straight/right turners')
         plt.legend(loc='upper left')
         plt.subplot(2,1,2)
         plt.plot(self.waiting_time_x, self.waiting_time, label='Average waiting time')
@@ -475,6 +506,6 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator(stats=False, draw=False)
+    simulator = Simulator(stats=True, draw=False)
     scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
     simulator.run(scheduler)

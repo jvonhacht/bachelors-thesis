@@ -1,3 +1,4 @@
+import time
 import random
 import numpy as np
 from collections import deque
@@ -8,10 +9,9 @@ from keras.optimizers import Adam
 from simulator import Simulator
 
 class DQNAgent:
-    def __init__(self, state_size, action_size, simulator):
+    def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.simulator = simulator
 
         # params
         self.memory = deque(maxlen=10000)
@@ -54,16 +54,17 @@ class DQNAgent:
 
     def act(self, state):
         if (np.random.rand() <= self.epsilon):
-            # TODO fix
-            return self.simulator.actions.sample()
+            return random.randint(0,7)
         
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])
 
 if __name__ == "__main__":
     env = Simulator()
-    agent = DQNAgent(25, 8, env)
+    agent = DQNAgent(25, 8)
     episodes = 1000
+    batch_size = 32
+    done = False
 
     for e in range(episodes):
         # new episode, fresh simulation
@@ -71,13 +72,16 @@ if __name__ == "__main__":
         state = np.reshape(state, [1, 25])
 
         for time_step in range(env.time_steps_per_hour*24):
+            start = time.time()
             action = agent.act(state)
-
             next_state, reward, done = env.step(action)
             next_state = np.reshape(next_state, [1, 25])
 
             agent.remember(state, action, reward, next_state, done)
             state = next_state
+
+            if (time_step % 100 == 0):
+                print('timestep: ' + str(time_step))
 
             if done:
                 # print the score and break out of the loop
@@ -85,4 +89,7 @@ if __name__ == "__main__":
                         .format(e, episodes, time_step))
                 break
         
-        agent.replay(32)
+            if len(agent.memory) > batch_size:
+                agent.replay(batch_size)
+            end = time.time()
+            print('step' + str(time_step) + ': ' + str(end - start))
