@@ -67,6 +67,74 @@ class Simulator:
         self.waiting_time_x = []
         self.passed_cars = 0
 
+    def reset(self):
+        self.lanes = {
+            Direction.NORTH: Lane('North', Direction.EAST),
+            Direction.SOUTH: Lane('South', Direction.WEST),
+            Direction.WEST: Lane('West', Direction.NORTH),
+            Direction.EAST: Lane('East', Direction.SOUTH)
+        }
+        self.time = 0
+        # 3x3 matrix
+        self.occupation_matrix = np.matrix('None,None,None; None,None,None; None,None,None', dtype=Car)
+        return self.get_state()
+
+    def get_state(self):
+        state = []
+        # give state info about intersection occupation
+        for i in range(0,3):
+            for j in range(0,3):
+                cell = self.occupation_matrix[i,j]
+                if (cell == None):
+                    state.append(0)
+                elif (isinstance(cell, dict)):
+                    state.append(0.5)
+                else:
+                    state.append(1) 
+        total_cars = self.lanes[Direction.NORTH].size() + \
+                self.lanes[Direction.SOUTH].size() + \
+                self.lanes[Direction.WEST].size() + \
+                self.lanes[Direction.EAST].size()
+        highest_waiting_time = 0
+        for key in self.lanes:
+            # give state info about how many cars in each lane
+            lane = self.lanes[key]
+            left_car = lane.peek_left()
+            straight_car = lane.peek_straight_right()
+            if (left_car != -1 and (self.time - left_car.arrival) > highest_waiting_time):
+                highest_waiting_time = (self.time - left_car.arrival)
+            if (straight_car != -1 and (self.time - straight_car.arrival) > highest_waiting_time):
+                highest_waiting_time = (self.time - straight_car.arrival)
+        
+        for key in self.lanes:
+            # give state info about how many cars in each lane
+            lane = self.lanes[key]
+
+            left_car = lane.peek_left()
+            if (left_car == -1):
+                # no cars and no waiting time
+                state.append(-1)
+                state.append(-1)
+            else:
+                state.append(len(lane.left)/total_cars)
+                if (highest_waiting_time>0):
+                    state.append((self.time-left_car.arrival)/highest_waiting_time)
+                else:
+                    state.append(-1)
+
+            straight_car = lane.peek_straight_right()
+            if (straight_car == -1):
+                # no cars and no waiting time
+                state.append(-1)
+                state.append(-1)
+            else:
+                state.append(len(lane.straight_right)/total_cars)
+                if (highest_waiting_time>0):
+                    state.append((self.time-straight_car.arrival)/highest_waiting_time)
+                else:
+                    state.append(-1)
+        return state
+
     def fit_curve(self, graph):
         """
         Fit a curve to traffic data points.
@@ -213,7 +281,7 @@ class Simulator:
         elif (lane_type == 'straight_right'):
             car = self.lanes[direction].peek_straight_right()
 
-        if (car != None):
+        if (car != None and car != -1):
             allocated = self.allocate_path(direction, car.destination, car)
             if (allocated):
                 if (lane_type == 'left'):
@@ -314,6 +382,7 @@ class Simulator:
         while (self.time < self.time_steps_per_hour*24):
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
+            print(self.get_state())
 
             if (self.draw):
                 clear_screen = self.make_rect(Point(70,10), 60, 20)

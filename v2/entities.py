@@ -15,12 +15,14 @@ class Lane:
         self.name = name
 
     def size(self):
-        return len(self.left), len(self.straight_right)
+        return len(self.left) + len(self.straight_right)
 
     def peek_straight_right(self):
         if self.straight_right:
             return self.straight_right[-1]
+        return -1
 
     def peek_left(self):
         if self.left:
             return self.left[-1]
+        return -1
