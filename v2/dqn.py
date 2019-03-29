@@ -6,6 +6,7 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
+# UN COMMENT FOR TRAINING
 from simulator import Simulator
 
 class DQNAgent:
@@ -67,7 +68,7 @@ class DQNAgent:
         self.model.save_weights(name)
 
 if __name__ == "__main__":
-    env = Simulator(5, traffic='heavy')
+    env = Simulator(1, traffic='heavy', draw=False)
     agent = DQNAgent(25, 8)
     episodes = 1000
     batch_size = 32
@@ -83,6 +84,7 @@ if __name__ == "__main__":
             action = agent.act(state)
             #print(action)
             next_state, reward, done = env.step(action)
+            #print('reward: ' + str(reward))
             next_state = np.reshape(next_state, [1, 25])
 
             agent.remember(state, action, reward, next_state, done)
@@ -94,7 +96,7 @@ if __name__ == "__main__":
             if done:
                 # print the score and break out of the loop
                 print("episode: {}/{}, score: {}"
-                        .format(e, episodes, time_step))
+                        .format(e, episodes, reward))
                 break
         
             if len(agent.memory) > batch_size:

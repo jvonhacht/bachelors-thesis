@@ -12,14 +12,14 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-
+#from dqn_scheduler import DQNScheduler
 
 class Simulator:
 
     # PARAMETERS
-    time_steps_per_hour = 14400
-    car_add_frequency = 6
-    time_to_move = 2
+    time_steps_per_hour = 18000
+    car_add_frequency = 5
+    time_to_move = 10
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False):
         if (traffic == 'stochastic'):
@@ -70,10 +70,11 @@ class Simulator:
 
         # variables for average waiting time
         self.waiting_time = []
+        self.waiting_time_x = []
         self.waiting_time_num = 0
         self.passed_cars = 0
 
-        self.actions = np.array([0,1,2,3,4,5,6,7])
+        self.green_counter = 0
 
     def reset(self):
         self.lanes = {
@@ -283,6 +284,8 @@ class Simulator:
         """
     
     def green_light(self, direction, lane_type):
+        self.green_counter += 1
+        #print('green' + str(self.green_counter))
         car = None
         if (lane_type == 'left'):
             car = self.lanes[direction].peek_left()
@@ -314,7 +317,10 @@ class Simulator:
             count += 1
         if (empty):
             self.waiting_time.append(self.time - car.arrival)
+            self.waiting_time_x.append(self.time/self.time_steps_per_hour)
             self.waiting_time_num += (self.time - car.arrival)
+            #print('here')
+            #print(self.passed_cars)
             self.passed_cars += 1
 
             car_copy = car_instructions.copy()
@@ -338,6 +344,7 @@ class Simulator:
         for i in range(0,3):
             for j in range(0,3):
                 car = self.occupation_matrix[i,j]
+                
                 if (car != None and not(isinstance(car, dict))):
                     # refill the path, might be removed if car in front
                     for path in car.directions:
@@ -376,13 +383,6 @@ class Simulator:
         if (self.time % self.car_add_frequency == 0):
             hour = self.time / self.time_steps_per_hour
             self.stochastic_add(hour)
-            self.stochastic_add(hour)
-            self.stochastic_add(hour)
-            self.stochastic_add(hour)
-            self.stochastic_add(hour)
-            self.stochastic_add(hour)
-            self.stochastic_add(hour)
-            self.stochastic_add(hour)
                 
         if (action == 0):
             self.green_light(Direction.NORTH, 'left')
@@ -402,10 +402,14 @@ class Simulator:
             self.green_light(Direction.EAST, 'straight_right')
         self.time += 1
         #print(self.time_steps_per_hour/60*self.minutes)
+        number_of_cars = self.passed_cars
+        if (self.passed_cars == 0):
+            number_of_cars = 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
-            return self.get_state(), self.passed_cars, True
+            print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
+            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 100), True
         else:
-            return self.get_state(), self.passed_cars, False
+            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 100), False
 
     def run(self, scheduler):
         if (self.stats):
@@ -488,7 +492,7 @@ class Simulator:
         plt.plot(self.X, combined_straight, color_2,label='Straight/right turners')
         plt.legend(loc='upper left')
         plt.subplot(2,1,2)
-        plt.plot(self.waiting_time, self.waiting_time, label='Average waiting time')
+        plt.plot(self.waiting_time_x, self.waiting_time, '.b', label='Average waiting time')
         plt.show()
 
 class Car:
@@ -520,6 +524,7 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator(1440, stats=True, draw=False)
-    scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
+    simulator = Simulator(60, stats=True, draw=False)
+    #scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
+    scheduler = DQNScheduler(simulator)
     simulator.run(scheduler)
