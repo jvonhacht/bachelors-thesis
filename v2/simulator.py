@@ -62,6 +62,11 @@ class Simulator:
         if (self.draw):
             self.win = GraphWin('Test', 500, 500)
 
+        # variables for average waiting time
+        self.waiting_time = []
+        self.waiting_time_x = []
+        self.passed_cars = 0
+
     def fit_curve(self, graph):
         """
         Fit a curve to traffic data points.
@@ -232,6 +237,8 @@ class Simulator:
                 empty = False
             count += 1
         if (empty):
+            self.waiting_time.append(self.time - car.arrival)
+            self.waiting_time_x.append(self.time)
             car_copy = car_instructions.copy()
             first = car_copy.pop(0)
             car.directions = car_copy
@@ -301,6 +308,7 @@ class Simulator:
             self.eY_left = []
             self.eY_straight_right = []
             self.eY_total = []
+            self.avg_waiting_time = []
 
         print('day start')
         while (self.time < self.time_steps_per_hour*24):
@@ -344,31 +352,29 @@ class Simulator:
         self.sY_left.append(len(self.lanes[Direction.SOUTH].left))
         self.sY_straight_right.append(len(self.lanes[Direction.SOUTH].straight_right))
         self.sY_total.append(len(self.lanes[Direction.SOUTH].left) + len(self.lanes[Direction.SOUTH].straight_right))
+        if (self.passed_cars>0):
+            self.avg_waiting_time.append(self.waiting_time)
+        else:
+            self.avg_waiting_time.append(0)
 
     def display_stats(self):
+        # waiting
+        print('Avg waiting time: ' + str(sum(self.waiting_time)/len(self.waiting_time)))
+        # graphs
         color_1 = '--b'
         color_2 = '--g'
         color_3 = 'r'
-        plt.subplot(4,1,1)
-        plt.plot(self.X, self.nY_total, color_3,label='Total')
-        plt.plot(self.X, self.nY_left, color_1,label='North left')
-        plt.plot(self.X, self.nY_straight_right, color_2,label='North straight/right')
+        plt.subplot(2,1,1)
+        combined_total = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_total, self.sY_total, self.eY_total, self.wY_total)))
+        combined_left = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_left, self.sY_left, self.eY_left, self.wY_left)))
+        combined_straight = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_straight_right,
+            self.sY_straight_right, self.eY_straight_right, self.wY_straight_right)))
+        plt.plot(self.X, combined_total, color_3,label='Total')
+        plt.plot(self.X, combined_left, color_1,label='North left')
+        plt.plot(self.X, combined_straight, color_2,label='North straight/right')
         plt.legend(loc='upper left')
-        plt.subplot(4,1,2)
-        plt.plot(self.X, self.sY_total, color_3,label='Total')
-        plt.plot(self.X, self.sY_left, color_1, label='South left')
-        plt.plot(self.X, self.sY_straight_right, color_2, label='South straight/right')
-        plt.legend(loc='upper left')
-        plt.subplot(4,1,3)
-        plt.plot(self.X, self.wY_total, color_3,label='Total')
-        plt.plot(self.X, self.wY_left, color_1, label='West left')
-        plt.plot(self.X, self.wY_straight_right, color_2, label='West straight/right')
-        plt.legend(loc='upper left')
-        plt.subplot(4,1,4)
-        plt.plot(self.X, self.eY_total, color_3,label='Total')
-        plt.plot(self.X, self.eY_left, color_1, label='East left')
-        plt.plot(self.X, self.eY_straight_right, color_2, label='East straight/right')
-        plt.legend(loc='upper left')
+        plt.subplot(2,1,2)
+        plt.plot(self.waiting_time_x, self.waiting_time, label='Average waiting time')
         plt.show()
 
 class Car:
@@ -400,6 +406,6 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator(stats=True)
+    simulator = Simulator(stats=False, draw=False)
     scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
     simulator.run(scheduler)
