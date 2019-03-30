@@ -3,7 +3,7 @@ from entities import Direction
 class FixedScheduler:
     def __init__(self, simulator, timesteps_per_hour):
         self.simulator = simulator
-        self.period = timesteps_per_hour/30
+        self.period = timesteps_per_hour/60
         self.count = 0
 
     def schedule(self):

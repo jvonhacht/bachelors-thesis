@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-from simulator import Simulator
+#from simulator import Simulator
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
@@ -97,6 +97,8 @@ if __name__ == "__main__":
                 # print the score and break out of the loop
                 print("episode: {}/{}, score: {}"
                         .format(e, episodes, reward))
+                print('cars passed: {0}'.format(env.passed_cars))
+                print('Avg waiting time: {0}'.format(env.waiting_time_num/env.passed_cars))
                 break
         
             if len(agent.memory) > batch_size:

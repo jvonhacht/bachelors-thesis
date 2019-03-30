@@ -12,13 +12,13 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-#from dqn_scheduler import DQNScheduler
+from dqn_scheduler import DQNScheduler
 
 class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000
-    car_add_frequency = 5
+    car_add_frequency = 10
     time_to_move = 10
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False):
@@ -35,6 +35,7 @@ class Simulator:
             Direction.WEST: Lane('West', Direction.NORTH),
             Direction.EAST: Lane('East', Direction.SOUTH)
         }
+        self.time = 18000*9.5
         self.time = 0
         # 3x3 matrix
         self.occupation_matrix = np.matrix('None,None,None; None,None,None; None,None,None', dtype=Car)
@@ -86,6 +87,9 @@ class Simulator:
         self.time = 0
         # 3x3 matrix
         self.occupation_matrix = np.matrix('None,None,None; None,None,None; None,None,None', dtype=Car)
+        self.passed_cars = 0
+        self.waiting_time_num = 0
+        self.waiting_time = []
         return self.get_state()
 
     def get_state(self):
@@ -250,39 +254,7 @@ class Simulator:
         directions = [Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
         directions.remove(direction_from)
         return directions[randint(0,2)] 
-        #return Direction.EAST
-        # quite ugly but more effective..
-        """
-        if (direction_from == Direction.NORTH):
-            if (r_number == 0):
-                return Direction.SOUTH
-            elif (r_number == 1):
-                return Direction.EAST
-            elif (r_number == 2):
-                return Direction.WEST
-        elif(direction_from == Direction.SOUTH):
-            if (r_number == 0):
-                return Direction.NORTH
-            elif (r_number == 1):
-                return Direction.EAST
-            elif (r_number == 2):
-                return Direction.WEST
-        elif(direction_from == Direction.EAST):
-            if (r_number == 0):
-                return Direction.SOUTH
-            elif (r_number == 1):
-                return Direction.NORTH
-            elif (r_number == 2):
-                return Direction.WEST
-        elif(direction_from == Direction.WEST):
-            if (r_number == 0):
-                return Direction.SOUTH
-            elif (r_number == 1):
-                return Direction.EAST
-            elif (r_number == 2):
-                return Direction.NORTH
-        """
-    
+        
     def green_light(self, direction, lane_type):
         self.green_counter += 1
         #print('green' + str(self.green_counter))
@@ -316,7 +288,7 @@ class Simulator:
                 empty = False
             count += 1
         if (empty):
-            self.waiting_time.append(self.time - car.arrival)
+            self.waiting_time.append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
             self.waiting_time_x.append(self.time/self.time_steps_per_hour)
             self.waiting_time_num += (self.time - car.arrival)
             #print('here')
@@ -383,6 +355,11 @@ class Simulator:
         if (self.time % self.car_add_frequency == 0):
             hour = self.time / self.time_steps_per_hour
             self.stochastic_add(hour)
+            #self.stochastic_add(hour)
+            #self.stochastic_add(hour)
+            #self.stochastic_add(hour)
+            #self.stochastic_add(hour)
+            #self.stochastic_add(hour)
                 
         if (action == 0):
             self.green_light(Direction.NORTH, 'left')
@@ -405,11 +382,13 @@ class Simulator:
         number_of_cars = self.passed_cars
         if (self.passed_cars == 0):
             number_of_cars = 1
+        #initial_waiting_time = 0
+        #if (initial_waiting_time )
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
-            print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
-            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 100), True
+            #print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
+            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 50), True
         else:
-            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 100), False
+            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 50), False
 
     def run(self, scheduler):
         if (self.stats):
@@ -525,6 +504,7 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator(60, stats=True, draw=False)
-    #scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
-    scheduler = DQNScheduler(simulator)
+    #scheduler = DQNScheduler(simulator)
+    #simulator.run(scheduler)
+    scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
     simulator.run(scheduler)
