@@ -74,6 +74,7 @@ if __name__ == "__main__":
     batch_size = 32
     done = False
 
+    print('Started training...')
     for e in range(episodes):
         # new episode, fresh simulation
         state = env.reset()
@@ -91,7 +92,8 @@ if __name__ == "__main__":
             state = next_state
 
             if (time_step % 100 == 0):
-                print('timestep: ' + str(time_step))
+                pass
+                #print('timestep: ' + str(time_step))
 
             if done:
                 # print the score and break out of the loop
@@ -99,6 +101,7 @@ if __name__ == "__main__":
                         .format(e, episodes, reward))
                 print('cars passed: {0}'.format(env.passed_cars))
                 print('Avg waiting time: {0}'.format(env.waiting_time_num/env.passed_cars))
+                print('---------------------------------------------')
                 break
         
             if len(agent.memory) > batch_size:

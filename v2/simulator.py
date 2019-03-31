@@ -13,12 +13,13 @@ from entities import Lane
 
 from fixed_scheduler import FixedScheduler
 from dqn_scheduler import DQNScheduler
+from random_scheduler import RandomScheduler
 
 class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000
-    car_add_frequency = 10
+    car_add_frequency = 8
     time_to_move = 10
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False):
@@ -75,7 +76,7 @@ class Simulator:
         self.waiting_time_num = 0
         self.passed_cars = 0
 
-        self.green_counter = 0
+        self.reward = 0
 
     def reset(self):
         self.lanes = {
@@ -90,6 +91,7 @@ class Simulator:
         self.passed_cars = 0
         self.waiting_time_num = 0
         self.waiting_time = []
+        self.reward = 0
         return self.get_state()
 
     def get_state(self):
@@ -256,8 +258,6 @@ class Simulator:
         return directions[randint(0,2)] 
         
     def green_light(self, direction, lane_type):
-        self.green_counter += 1
-        #print('green' + str(self.green_counter))
         car = None
         if (lane_type == 'left'):
             car = self.lanes[direction].peek_left()
@@ -288,11 +288,10 @@ class Simulator:
                 empty = False
             count += 1
         if (empty):
+            self.reward += len(car_instructions*30)
             self.waiting_time.append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
             self.waiting_time_x.append(self.time/self.time_steps_per_hour)
             self.waiting_time_num += (self.time - car.arrival)
-            #print('here')
-            #print(self.passed_cars)
             self.passed_cars += 1
 
             car_copy = car_instructions.copy()
@@ -332,6 +331,17 @@ class Simulator:
                             self.occupation_matrix[direction[0],direction[1]] = self.occupation_matrix[i,j]
                             self.occupation_matrix[i,j] = None
                 if (self.draw):
+                    noWest = Text(Point(10, 250), str(self.lanes[Direction.WEST].size()))
+                    noNorth = Text(Point(250, 10), str(self.lanes[Direction.NORTH].size()))
+                    noEast = Text(Point(475, 250), str(self.lanes[Direction.EAST].size()))
+                    nSouth = Text(Point(250, 475), str(self.lanes[Direction.SOUTH].size()))
+                    noWest.draw(self.win)
+                    obj = self.make_rect(Point(10 , 250), 20, 10)
+                    obj.setFill('white')
+                    obj.draw(self.win)
+                    noNorth.draw(self.win)
+                    noEast.draw(self.win)
+                    nSouth.draw(self.win)
                     if (car == None):
                         obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
                         obj.setFill('white')
@@ -355,11 +365,6 @@ class Simulator:
         if (self.time % self.car_add_frequency == 0):
             hour = self.time / self.time_steps_per_hour
             self.stochastic_add(hour)
-            #self.stochastic_add(hour)
-            #self.stochastic_add(hour)
-            #self.stochastic_add(hour)
-            #self.stochastic_add(hour)
-            #self.stochastic_add(hour)
                 
         if (action == 0):
             self.green_light(Direction.NORTH, 'left')
@@ -377,18 +382,23 @@ class Simulator:
             self.green_light(Direction.EAST, 'left')
         elif (action == 7):
             self.green_light(Direction.EAST, 'straight_right')
+
+        if (self.time % 5 == 0):
+            #print('minus reqrd')
+            for key in self.lanes:
+                car_left = self.lanes[key].peek_left()
+                if (car_left != -1):
+                    self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)
+                car_straight = self.lanes[key].peek_straight_right()
+                if (car_straight != -1):
+                    self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)
+
         self.time += 1
-        #print(self.time_steps_per_hour/60*self.minutes)
-        number_of_cars = self.passed_cars
-        if (self.passed_cars == 0):
-            number_of_cars = 1
-        #initial_waiting_time = 0
-        #if (initial_waiting_time )
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
             #print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
-            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 50), True
+            return self.get_state(), self.reward, True
         else:
-            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 50), False
+            return self.get_state(), self.reward, False
 
     def run(self, scheduler):
         if (self.stats):
@@ -421,11 +431,11 @@ class Simulator:
 
             self.step(scheduler.schedule())
 
-            self.time -= 1
+            #self.time -= 1
             if (self.time % self.car_add_frequency == 0 and self.stats):
                 self.save_stats(hour)
 
-            self.time += 1
+            #self.time += 1
         print('day end')
 
         if (self.stats):
@@ -504,7 +514,8 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator(60, stats=True, draw=False)
-    #scheduler = DQNScheduler(simulator)
+    scheduler = DQNScheduler(simulator)
     #simulator.run(scheduler)
-    scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
+    #scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
+    #scheduler = RandomScheduler()
     simulator.run(scheduler)

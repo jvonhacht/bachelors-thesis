@@ -1,8 +1,7 @@
 from entities import Direction
 
 class FixedScheduler:
-    def __init__(self, simulator, timesteps_per_hour):
-        self.simulator = simulator
+    def __init__(self, timesteps_per_hour):
         self.period = timesteps_per_hour/60
         self.count = 0
 
@@ -10,24 +9,24 @@ class FixedScheduler:
         if (self.count >= 0):
             if (self.count < self.period/4):
                 if (self.count % 2 == 1):
-                    self.simulator.step(0)
+                    return 0
                 else:
-                    self.simulator.step(1)
+                    return 1
             elif (self.count >= self.period/4 and self.count < self.period/2):
                 if (self.count % 2 == 1):
-                    self.simulator.step(2)
+                    return 2
                 else:
-                    self.simulator.step(3)
+                    return 3
             elif (self.count >= self.period/2 and self.count < self.period/4*3):
                 if (self.count % 2 == 1):
-                    self.simulator.step(4)
+                    return 4
                 else:
-                    self.simulator.step(5)
+                    return 5
             elif (self.count >= self.period/4*3 and self.count < self.period):
                 if (self.count % 2 == 1):
-                    self.simulator.step(6)
+                    return 6
                 else:
-                    self.simulator.step(7)
+                    return 7
             else:
                 self.count = -4
         self.count += 1
