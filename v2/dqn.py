@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-#from simulator import Simulator
+from simulator import Simulator
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
