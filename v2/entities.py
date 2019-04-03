@@ -28,4 +28,4 @@ class Lane:
         return -1
 
     def __str__(self):
-        return self.name + ': ' + str(self.size()) + 'cars left' 
+        return self.name + ': ' + str(self.size()) + ' cars left' 

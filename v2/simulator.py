@@ -12,7 +12,7 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-#from dqn_scheduler import DQNScheduler
+from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:
@@ -72,6 +72,12 @@ class Simulator:
 
         # variables for average waiting time
         self.waiting_time = []
+        self.waiting_time_dict = {
+            Direction.NORTH: {'x': [], 'y': []},
+            Direction.SOUTH: {'x': [], 'y': []},
+            Direction.EAST: {'x': [], 'y': []},
+            Direction.WEST: {'x': [], 'y': []},
+        }
         self.waiting_time_x = []
         self.waiting_time_num = 0
         self.passed_cars = 0
@@ -311,8 +317,10 @@ class Simulator:
                 empty = False
             count += 1
         if (empty):
-            self.reward += len(car_instructions*30)
+            self.reward += len(car_instructions*150)
             self.waiting_time.append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
+            self.waiting_time_dict[direction_to]['y'].append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
+            self.waiting_time_dict[direction_to]['x'].append(self.time/self.time_steps_per_hour)
             self.waiting_time_x.append(self.time/self.time_steps_per_hour)
             self.waiting_time_num += (self.time - car.arrival)
             self.passed_cars += 1
@@ -433,12 +441,20 @@ class Simulator:
         if (self.passed_cars == 0):
             number_of_cars = 1
 
+        for key in self.lanes:
+            car_left = self.lanes[key].peek_left()
+            if (car_left != -1):
+                self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)/100
+            car_straight = self.lanes[key].peek_straight_right()
+            if (car_straight != -1):
+                self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)/100
+
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
             #print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
-            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 500), done
+            return self.get_state(), self.reward, done
         else:
-            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 500), done
+            return self.get_state(), self.reward, done
 
     def run(self, scheduler):
         if (self.stats):
@@ -539,7 +555,10 @@ class Simulator:
         plt.plot(self.X, combined_straight, color_2,label='Straight/right turners')
         plt.legend(loc='upper left')
         plt.subplot(2,1,2)
-        plt.plot(self.waiting_time_x, self.waiting_time, '.b', label='Average waiting time')
+        plt.plot(self.waiting_time_dict[Direction.NORTH]['x'], self.waiting_time_dict[Direction.NORTH]['y'], '.b', label='Average waiting time')
+        plt.plot(self.waiting_time_dict[Direction.SOUTH]['x'], self.waiting_time_dict[Direction.SOUTH]['y'], '.g', label='Average waiting time')
+        plt.plot(self.waiting_time_dict[Direction.WEST]['x'], self.waiting_time_dict[Direction.WEST]['y'], '.r', label='Average waiting time')
+        plt.plot(self.waiting_time_dict[Direction.EAST]['x'], self.waiting_time_dict[Direction.EAST]['y'], '.y', label='Average waiting time')
         plt.show()
 
 class Car:
@@ -571,7 +590,7 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator(1440, stats=True, draw=False, save=False)
+    simulator = Simulator(1440, stats=True, draw=False, save=True)
     scheduler = DQNScheduler(simulator)
     #simulator.run(scheduler)
     #scheduler = FixedScheduler(simulator.time_steps_per_hour)

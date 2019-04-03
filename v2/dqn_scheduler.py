@@ -10,5 +10,4 @@ class DQNScheduler:
 
     def schedule(self):
         action = self.agent.predict(np.reshape(self.simulator.get_state(), [1, 25]))
-        print(action)
         return action

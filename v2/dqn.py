@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-from simulator import Simulator
+#from simulator import Simulator
 
 from entities import Direction
 
@@ -21,7 +21,7 @@ class DQNAgent:
         self.gamma = 0.95   
         self.epsilon = 1.0 
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9995
         self.learning_rate = 0.001
         self.model = self._build_model()
 
