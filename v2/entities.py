@@ -26,3 +26,6 @@ class Lane:
         if self.left:
             return self.left[-1]
         return -1
+
+    def __str__(self):
+        return self.name + ': ' + str(self.size()) + 'cars left' 

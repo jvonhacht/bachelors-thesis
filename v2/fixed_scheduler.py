@@ -1,4 +1,5 @@
 from entities import Direction
+import random
 
 class FixedScheduler:
     def __init__(self, timesteps_per_hour):

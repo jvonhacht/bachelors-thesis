@@ -22,7 +22,7 @@ class Simulator:
     car_add_frequency = 8
     time_to_move = 10
 
-    def __init__(self, minutes, traffic='stochastic', draw=False, stats=False):
+    def __init__(self, minutes, traffic='stochastic', draw=False, stats=False, save=False):
         if (traffic == 'stochastic'):
             self.traffic_probability = self.fit_curve(False)
         elif (traffic == 'heavy'):
@@ -77,6 +77,16 @@ class Simulator:
         self.passed_cars = 0
 
         self.reward = 0
+
+        self.save = save
+        if (save):
+            self.f = open("schedule.txt", "w")
+        else:
+            self.car_schedule = []
+            with open('schedule.txt') as fp:
+                for line in fp:
+                    params = line.split(" ")
+                    self.car_schedule.append((params[0], params[1], params[2], params[3]))
 
     def reset(self):
         self.lanes = {
@@ -240,21 +250,34 @@ class Simulator:
 
             if (car.destination == self.lanes[direction].left_turn):
                 self.lanes[direction].left.append(car)
+                if (self.save):
+                    self.f.write("{0} {1} {2} {3} \n".format(self.time/self.time_steps_per_hour, 'left', direction, car.destination))
             else:
                 self.lanes[direction].straight_right.append(car)
+                if (self.save):
+                    self.f.write("{0} {1} {2} {3} \n".format(self.time/self.time_steps_per_hour, 'straight', direction, car.destination))
 
     def add_direction(self, direction):
         car = Car(self.get_random_direction(direction), self.time, self.time_to_move, direction) 
         #print('Added: ' + str(direction) + str(car))  
-
         if (car.destination == self.lanes[direction].left_turn):
             self.lanes[direction].left.append(car)
         else:
             self.lanes[direction].straight_right.append(car)
 
+    def add_from_to_direction(self, direction_from, direction_to, turn):
+        car = Car(direction_to, self.time, self.time_to_move, direction_from)
+        if (turn == 'left'):
+            self.lanes[direction_from].left.append(car)
+        else:
+            self.lanes[direction_from].straight_right.append(car)
+
     def get_random_direction(self, direction_from):
         directions = [Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
-        directions.remove(direction_from)
+        try:
+            directions.remove(direction_from)
+        except ValueError:
+            pass
         return directions[randint(0,2)] 
         
     def green_light(self, direction, lane_type):
@@ -360,11 +383,28 @@ class Simulator:
                         obj_destination.draw(self.win)
         #print(self.occupation_matrix)
 
+    def string_direction_to_enum(self, dir):
+        if (dir == 'Direction.NORTH'):
+            return Direction.NORTH
+        elif (dir == 'Direction.SOUTH'):
+            return Direction.SOUTH
+        elif (dir == 'Direction.EAST'):
+            return Direction.EAST
+        elif (dir == 'Direction.WEST'):
+            return Direction.WEST
+
+    def training(self):
+        for lane in self.lanes:
+            for i in range(0,20):
+                car = Car(self.get_random_direction(lane), self.time, self.time_to_move, lane) 
+
+                if (car.destination == self.lanes[lane].left_turn):
+                    self.lanes[lane].left.append(car)
+                else:
+                    self.lanes[lane].straight_right.append(car)
+
     def step(self, action):
         self.update_occupation_matrix()
-        if (self.time % self.car_add_frequency == 0):
-            hour = self.time / self.time_steps_per_hour
-            self.stochastic_add(hour)
                 
         if (action == 0):
             self.green_light(Direction.NORTH, 'left')
@@ -383,22 +423,22 @@ class Simulator:
         elif (action == 7):
             self.green_light(Direction.EAST, 'straight_right')
 
-        if (self.time % 5 == 0):
-            #print('minus reqrd')
-            for key in self.lanes:
-                car_left = self.lanes[key].peek_left()
-                if (car_left != -1):
-                    self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)
-                car_straight = self.lanes[key].peek_straight_right()
-                if (car_straight != -1):
-                    self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)
+        done = True
+        for lane in self.lanes:
+            lane = self.lanes[lane]
+            if (lane.size() != 0):
+                done = False
+
+        number_of_cars = self.passed_cars
+        if (self.passed_cars == 0):
+            number_of_cars = 1
 
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
             #print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
-            return self.get_state(), self.reward, True
+            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 500), done
         else:
-            return self.get_state(), self.reward, False
+            return self.get_state(), abs(self.waiting_time_num/number_of_cars - 500), done
 
     def run(self, scheduler):
         if (self.stats):
@@ -422,6 +462,19 @@ class Simulator:
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
 
+            if (self.time % self.car_add_frequency == 0):
+                if (self.save):
+                    self.stochastic_add(hour)
+            
+            if (not(self.save)):
+                try:
+                    car_s = self.car_schedule[0]
+                    if (abs(hour - float(car_s[0])) < 0.0001):
+                        self.add_from_to_direction(self.string_direction_to_enum(car_s[2]), self.string_direction_to_enum(car_s[3]), car_s[1])
+                        self.car_schedule.pop(0)
+                except IndexError as e:
+                    print(e)
+
             if (self.draw):
                 clear_screen = self.make_rect(Point(70,10), 60, 20)
                 clear_screen.setFill('white')
@@ -432,11 +485,16 @@ class Simulator:
             self.step(scheduler.schedule())
 
             #self.time -= 1
+            if (self.time/self.time_steps_per_hour % 1 == 0):
+                print('Simulating hour '  + str(int(self.time/self.time_steps_per_hour)) + '/24')
             if (self.time % self.car_add_frequency == 0 and self.stats):
+                #print('here')
                 self.save_stats(hour)
 
             #self.time += 1
         print('day end')
+        if (self.save):
+            self.f.close()
 
         if (self.stats):
             self.display_stats()
@@ -466,7 +524,7 @@ class Simulator:
 
     def display_stats(self):
         # waiting
-        print('Avg waiting time: ' + str(sum(self.waiting_time)/len(self.waiting_time)))
+        #print('Avg waiting time: ' + str(sum(self.waiting_time)/len(self.waiting_time)))
         # graphs
         color_1 = '--b'
         color_2 = '--g'
@@ -513,9 +571,9 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator(60, stats=True, draw=False)
+    simulator = Simulator(1440, stats=True, draw=False, save=False)
     scheduler = DQNScheduler(simulator)
     #simulator.run(scheduler)
-    #scheduler = FixedScheduler(simulator, simulator.time_steps_per_hour)
+    #scheduler = FixedScheduler(simulator.time_steps_per_hour)
     #scheduler = RandomScheduler()
     simulator.run(scheduler)

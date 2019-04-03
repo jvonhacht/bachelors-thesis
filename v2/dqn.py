@@ -9,6 +9,8 @@ from keras.optimizers import Adam
 # UN COMMENT FOR TRAINING
 from simulator import Simulator
 
+from entities import Direction
+
 class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
@@ -27,6 +29,9 @@ class DQNAgent:
         model = Sequential()
 
         model.add(Dense(75, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(50, activation='relu'))
+        model.add(Dense(50, activation='relu'))
+        model.add(Dense(50, activation='relu'))
         model.add(Dense(50, activation='relu'))
         #model.add(Dense(50, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
@@ -61,6 +66,10 @@ class DQNAgent:
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])
 
+    def predict(self, state):
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0])
+
     def load(self, name):
         self.model.load_weights(name)
 
@@ -68,19 +77,20 @@ class DQNAgent:
         self.model.save_weights(name)
 
 if __name__ == "__main__":
-    env = Simulator(1, traffic='heavy', draw=False)
+    env = Simulator(1000, traffic='heavy', draw=False)
     agent = DQNAgent(25, 8)
     episodes = 1000
-    batch_size = 32
+    batch_size = 64
     done = False
 
     print('Started training...')
     for e in range(episodes):
         # new episode, fresh simulation
         state = env.reset()
+        env.training()
         state = np.reshape(state, [1, 25])
-
-        for time_step in range(int(env.time_steps_per_hour/60*5)):
+        time_step = 0
+        while(True):
             start = time.time()
             action = agent.act(state)
             #print(action)
@@ -91,9 +101,13 @@ if __name__ == "__main__":
             agent.remember(state, action, reward, next_state, done)
             state = next_state
 
-            if (time_step % 100 == 0):
+            if (time_step % 300 == 0):
                 pass
-                #print('timestep: ' + str(time_step))
+                print(env.lanes[Direction.NORTH])
+                print(env.lanes[Direction.SOUTH])
+                print(env.lanes[Direction.EAST])
+                print(env.lanes[Direction.WEST])
+                print('timestep: ' + str(time_step))
 
             if done:
                 # print the score and break out of the loop
@@ -101,12 +115,13 @@ if __name__ == "__main__":
                         .format(e, episodes, reward))
                 print('cars passed: {0}'.format(env.passed_cars))
                 print('Avg waiting time: {0}'.format(env.waiting_time_num/env.passed_cars))
-                print('---------------------------------------------')
+                #print('---------------------------------------------')
                 break
         
             if len(agent.memory) > batch_size:
                 agent.replay(batch_size)
             end = time.time()
+            time_step += 1
             #print('step' + str(time_step) + ': ' + str(end - start))
         if (e % 10 == 0):
             agent.save("./save/cartpole-dqn.h5")
