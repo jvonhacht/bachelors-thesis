@@ -12,7 +12,7 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-from dqn_scheduler import DQNScheduler
+#from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:
@@ -412,6 +412,7 @@ class Simulator:
                     self.lanes[lane].straight_right.append(car)
 
     def step(self, action):
+        self.reward = 0
         self.update_occupation_matrix()
                 
         if (action == 0):
@@ -431,27 +432,24 @@ class Simulator:
         elif (action == 7):
             self.green_light(Direction.EAST, 'straight_right')
 
+        # training done if lanes empty
         done = True
         for lane in self.lanes:
             lane = self.lanes[lane]
             if (lane.size() != 0):
                 done = False
 
-        number_of_cars = self.passed_cars
-        if (self.passed_cars == 0):
-            number_of_cars = 1
-
+        # TODO check this, change scale
         for key in self.lanes:
             car_left = self.lanes[key].peek_left()
             if (car_left != -1):
-                self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)/100
+                self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)/5
             car_straight = self.lanes[key].peek_straight_right()
             if (car_straight != -1):
-                self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)/100
+                self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)/5
 
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
-            #print('waitingin time: ' + str(self.waiting_time_num/number_of_cars))
             return self.get_state(), self.reward, done
         else:
             return self.get_state(), self.reward, done

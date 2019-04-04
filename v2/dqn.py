@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-#from simulator import Simulator
+from simulator import Simulator
 
 from entities import Direction
 
@@ -18,11 +18,11 @@ class DQNAgent:
 
         # params
         self.memory = deque(maxlen=10000)
-        self.gamma = 0.95   
+        self.gamma = 0.995  
         self.epsilon = 1.0 
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.9995
-        self.learning_rate = 0.001
+        self.learning_rate = 0.0001
         self.model = self._build_model()
 
     def _build_model(self):
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     env = Simulator(1000, traffic='heavy', draw=False)
     agent = DQNAgent(25, 8)
     episodes = 1000
-    batch_size = 64
+    batch_size = 32
     done = False
 
     print('Started training...')
@@ -93,13 +93,14 @@ if __name__ == "__main__":
         while(True):
             start = time.time()
             action = agent.act(state)
-            #print(action)
+            print(action)
             next_state, reward, done = env.step(action)
-            #print('reward: ' + str(reward))
+            print('reward: ' + str(reward))
             next_state = np.reshape(next_state, [1, 25])
 
             agent.remember(state, action, reward, next_state, done)
             state = next_state
+            #print('reward: ' +  str(reward))
 
             if (time_step % 300 == 0):
                 pass
@@ -108,14 +109,17 @@ if __name__ == "__main__":
                 print(env.lanes[Direction.EAST])
                 print(env.lanes[Direction.WEST])
                 print('timestep: ' + str(time_step))
+                print('sim time: ' + str(env.time/env.time_steps_per_hour))
 
             if done:
                 # print the score and break out of the loop
                 print("episode: {}/{}, score: {}"
                         .format(e, episodes, reward))
                 print('cars passed: {0}'.format(env.passed_cars))
-                print('Avg waiting time: {0}'.format(env.waiting_time_num/env.passed_cars))
-                #print('---------------------------------------------')
+                if (env.passed_cars>0):
+                    print('Avg waiting time: {0}'.format(env.waiting_time_num/env.passed_cars))
+                print('Epsilon: ' + str(agent.epsilon))
+                print('---------------------------------------------')
                 break
         
             if len(agent.memory) > batch_size:
