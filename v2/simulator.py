@@ -112,6 +112,19 @@ class Simulator:
 
     def get_state(self):
         state = []
+        for key in self.lanes:
+            lane = self.lanes[key]
+            car_left = lane.peek_left()
+            if (car_left == -1):
+                state.append(0)
+            else:
+                state.append(1)
+            car_straight = lane.peek_straight_right()
+            if (car_straight == -1):
+                state.append(0)
+            else:
+                state.append(1)
+        """
         # give state info about intersection occupation
         for i in range(0,3):
             for j in range(0,3):
@@ -164,6 +177,7 @@ class Simulator:
                     state.append((self.time-straight_car.arrival)/highest_waiting_time)
                 else:
                     state.append(-1)
+        """
         return state
 
     def fit_curve(self, graph):
@@ -411,6 +425,12 @@ class Simulator:
                 else:
                     self.lanes[lane].straight_right.append(car)
 
+    def print_occ_matrix(self):
+        for i in range(0,3):
+            for j in range(0,3):
+                print(str(self.occupation_matrix[i,j]) + ' ', end='')
+            print('\n')
+
     def step(self, action):
         self.reward = 0
         self.update_occupation_matrix()
@@ -440,6 +460,7 @@ class Simulator:
                 done = False
 
         # TODO check this, change scale
+        """
         for key in self.lanes:
             car_left = self.lanes[key].peek_left()
             if (car_left != -1):
@@ -447,6 +468,7 @@ class Simulator:
             car_straight = self.lanes[key].peek_straight_right()
             if (car_straight != -1):
                 self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)/5
+        """
 
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
@@ -589,8 +611,8 @@ class Car:
 
 if __name__ == "__main__":
     simulator = Simulator(1440, stats=True, draw=False, save=True)
-    scheduler = DQNScheduler(simulator)
+    #scheduler = DQNScheduler(simulator)
     #simulator.run(scheduler)
     #scheduler = FixedScheduler(simulator.time_steps_per_hour)
-    #scheduler = RandomScheduler()
+    scheduler = RandomScheduler()
     simulator.run(scheduler)
