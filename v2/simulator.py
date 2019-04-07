@@ -13,14 +13,14 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-#from dqn_scheduler import DQNScheduler
+from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000
-    car_add_frequency = 8
+    car_add_frequency = 40
     time_to_move = 10
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False, save=False):
@@ -140,6 +140,12 @@ class Simulator:
                 state.append(0)
             else:
                 state.append(1)
+        for i in range(0,3):
+            for j in range(0,3):
+                if (isinstance(self.occupation_matrix[i,j], Car)):
+                    state.append(1)
+                else:
+                    state.append(0)
         return state
 
     def fit_curve(self, graph):
@@ -319,6 +325,8 @@ class Simulator:
                     car = self.lanes[direction].left.pop()
                 elif (lane_type == 'straight_right'):
                     car = self.lanes[direction].straight_right.pop()
+            return allocated
+        return False
 
     def allocate_path(self, direction_from, direction_to, car):
         """
@@ -354,7 +362,6 @@ class Simulator:
             count += 1
         if (empty):
             # update stats and training variables
-            self.reward += len(car_instructions*150)
             self.waiting_time.append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
             self.waiting_time_dict[direction_to]['y'].append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
             self.waiting_time_dict[direction_to]['x'].append(self.time/self.time_steps_per_hour)
@@ -490,23 +497,31 @@ class Simulator:
         """
         self.reward = 0
         self.update_occupation_matrix()
-                
+
+        green_success = False      
         if (action == 0):
-            self.green_light(Direction.NORTH, 'left')
+            green_success = self.green_light(Direction.NORTH, 'left')
         elif (action == 1):
-            self.green_light(Direction.NORTH, 'straight_right')
+            green_success = self.green_light(Direction.NORTH, 'straight_right')
         elif (action == 2):
-            self.green_light(Direction.SOUTH, 'left')
+            green_success = self.green_light(Direction.SOUTH, 'left')
         elif (action == 3):
-            self.green_light(Direction.SOUTH, 'straight_right')
+            green_success = self.green_light(Direction.SOUTH, 'straight_right')
         elif (action == 4):
-            self.green_light(Direction.WEST, 'left')
+            green_success = self.green_light(Direction.WEST, 'left')
         elif (action == 5):
-            self.green_light(Direction.WEST, 'straight_right')
+            green_success = self.green_light(Direction.WEST, 'straight_right')
         elif (action == 6):
-            self.green_light(Direction.EAST, 'left')
+            green_success = self.green_light(Direction.EAST, 'left')
         elif (action == 7):
-            self.green_light(Direction.EAST, 'straight_right')
+            green_success = self.green_light(Direction.EAST, 'straight_right')
+        elif (action == 8):
+            # Do nothing, we don't want unnecessary scheduling...
+            self.reward = 5
+            pass
+
+        if (green_success):
+            self.reward = 10000
 
         # training done if lanes empty
         done = True
@@ -514,17 +529,6 @@ class Simulator:
             lane = self.lanes[lane]
             if (lane.size() != 0):
                 done = False
-
-        # TODO check this, change scale
-        """
-        for key in self.lanes:
-            car_left = self.lanes[key].peek_left()
-            if (car_left != -1):
-                self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)/5
-            car_straight = self.lanes[key].peek_straight_right()
-            if (car_straight != -1):
-                self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)/5
-        """
 
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
@@ -558,18 +562,10 @@ class Simulator:
             self.avg_waiting_time = []
 
         print('day start')
-        while (self.time < 100):
+        while (self.time < self.time_steps_per_hour*24):
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
-            
-            if (self.time == 1):
-                self.add_from_to_direction(Direction.WEST, Direction.EAST, 'straight')
-                self.add_from_to_direction(Direction.NORTH, Direction.SOUTH, 'straight')
-                self.add_from_to_direction(Direction.WEST, Direction.EAST, 'straight')
-            self.green_light(Direction.WEST, 'straight_right')
-            self.green_light(Direction.NORTH, 'straight_right')
 
-            """
             if (self.time % self.car_add_frequency == 0):
                 if (self.save):
                     self.stochastic_add(hour)
@@ -598,9 +594,8 @@ class Simulator:
             if (self.time % self.car_add_frequency == 0 and self.stats):
                 #print('here')
                 self.save_stats(hour)
-            """
 
-            self.time += 1
+            #self.time += 1
         print('day end')
         if (self.save):
             self.f.close()
@@ -692,9 +687,9 @@ class Car:
         return str(self.destination)
 
 if __name__ == "__main__":
-    simulator = Simulator(1440, stats=False, draw=True, save=True)
-    #scheduler = DQNScheduler(simulator)
+    simulator = Simulator(1440, stats=True, draw=False, save=True)
+    scheduler = DQNScheduler(simulator)
     #simulator.run(scheduler)
     #scheduler = FixedScheduler(simulator.time_steps_per_hour)
-    scheduler = RandomScheduler()
+    #scheduler = RandomScheduler()
     simulator.run(scheduler)
