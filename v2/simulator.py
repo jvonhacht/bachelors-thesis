@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 import random
+import copy
 from random import randint
 
 from graphics import *
@@ -12,22 +13,24 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-#from dqn_scheduler import DQNScheduler
+from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000
-    car_add_frequency = 8
+    car_add_frequency = 40
     time_to_move = 10
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False, save=False):
+        # legacy for learning not used?
         if (traffic == 'stochastic'):
             self.traffic_probability = self.fit_curve(False)
         elif (traffic == 'heavy'):
             self.traffic_probability = lambda x: 1
 
+        # not sure if used check
         self.minutes = minutes
 
         self.lanes = {
@@ -38,10 +41,10 @@ class Simulator:
         }
         self.time = 18000*9.5
         self.time = 0
-        # 3x3 matrix
+        # matrix defining where cars are in the intersection
         self.occupation_matrix = np.matrix('None,None,None; None,None,None; None,None,None', dtype=Car)
 
-        # instructions
+        # car directions for all combinations of from->to
         self.matrix_instructions = {
             Direction.SOUTH: {
                 Direction.NORTH: [(2,2),(1,2),(0,2)],
@@ -64,8 +67,10 @@ class Simulator:
                 Direction.EAST: [(2,0),(2,1),(2,2)],
             }
         }
+
+        # stats, training vars and drawing
         self.stats = stats
-        # graphics
+
         self.draw = draw
         if (self.draw):
             self.win = GraphWin('Test', 500, 500)
@@ -95,6 +100,9 @@ class Simulator:
                     self.car_schedule.append((params[0], params[1], params[2], params[3]))
 
     def reset(self):
+        """
+        Reset the simulator to original state
+        """
         self.lanes = {
             Direction.NORTH: Lane('North', Direction.EAST),
             Direction.SOUTH: Lane('South', Direction.WEST),
@@ -111,59 +119,33 @@ class Simulator:
         return self.get_state()
 
     def get_state(self):
+        """
+        Get the current state of the simulation. Used for dqn training.
+
+        Returns
+        -------
+        list
+            state of the simulation as NN input
+        """
         state = []
-        # give state info about intersection occupation
+        for key in self.lanes:
+            lane = self.lanes[key]
+            car_left = lane.peek_left()
+            if (car_left == -1):
+                state.append(0)
+            else:
+                state.append(1)
+            car_straight = lane.peek_straight_right()
+            if (car_straight == -1):
+                state.append(0)
+            else:
+                state.append(1)
         for i in range(0,3):
             for j in range(0,3):
-                cell = self.occupation_matrix[i,j]
-                if (cell == None):
+                if (isinstance(self.occupation_matrix[i,j], Car)):
+                    state.append(1)
+                else:
                     state.append(0)
-                elif (isinstance(cell, dict)):
-                    state.append(0.5)
-                else:
-                    state.append(1) 
-        total_cars = self.lanes[Direction.NORTH].size() + \
-                self.lanes[Direction.SOUTH].size() + \
-                self.lanes[Direction.WEST].size() + \
-                self.lanes[Direction.EAST].size()
-        highest_waiting_time = 0
-        for key in self.lanes:
-            # give state info about how many cars in each lane
-            lane = self.lanes[key]
-            left_car = lane.peek_left()
-            straight_car = lane.peek_straight_right()
-            if (left_car != -1 and (self.time - left_car.arrival) > highest_waiting_time):
-                highest_waiting_time = (self.time - left_car.arrival)
-            if (straight_car != -1 and (self.time - straight_car.arrival) > highest_waiting_time):
-                highest_waiting_time = (self.time - straight_car.arrival)
-        
-        for key in self.lanes:
-            # give state info about how many cars in each lane
-            lane = self.lanes[key]
-
-            left_car = lane.peek_left()
-            if (left_car == -1):
-                # no cars and no waiting time
-                state.append(-1)
-                state.append(-1)
-            else:
-                state.append(len(lane.left)/total_cars)
-                if (highest_waiting_time>0):
-                    state.append((self.time-left_car.arrival)/highest_waiting_time)
-                else:
-                    state.append(-1)
-
-            straight_car = lane.peek_straight_right()
-            if (straight_car == -1):
-                # no cars and no waiting time
-                state.append(-1)
-                state.append(-1)
-            else:
-                state.append(len(lane.straight_right)/total_cars)
-                if (highest_waiting_time>0):
-                    state.append((self.time-straight_car.arrival)/highest_waiting_time)
-                else:
-                    state.append(-1)
         return state
 
     def fit_curve(self, graph):
@@ -264,6 +246,14 @@ class Simulator:
                     self.f.write("{0} {1} {2} {3} \n".format(self.time/self.time_steps_per_hour, 'straight', direction, car.destination))
 
     def add_direction(self, direction):
+        """
+        Add a car from a direction to a random direction.
+
+        Parameters
+        ----------
+        direction : Direction
+            which lane the car should be added to
+        """
         car = Car(self.get_random_direction(direction), self.time, self.time_to_move, direction) 
         #print('Added: ' + str(direction) + str(car))  
         if (car.destination == self.lanes[direction].left_turn):
@@ -272,6 +262,18 @@ class Simulator:
             self.lanes[direction].straight_right.append(car)
 
     def add_from_to_direction(self, direction_from, direction_to, turn):
+        """
+        Add a car to a lane going from direction_from to direction_to.
+
+        Parameters
+        ----------
+        direction_from : Direction
+            where car comes from
+        direction_to : Direction
+            where car goes to
+        turn : string
+            if the path requires left turn or not
+        """
         car = Car(direction_to, self.time, self.time_to_move, direction_from)
         if (turn == 'left'):
             self.lanes[direction_from].left.append(car)
@@ -279,6 +281,19 @@ class Simulator:
             self.lanes[direction_from].straight_right.append(car)
 
     def get_random_direction(self, direction_from):
+        """
+        Get a random direction that is not direction_from.
+
+        Parameters
+        ----------
+        direction_from : Direction
+            the direction you want excluded in random
+            
+        Returns
+        -------
+        Direction
+            the random direction
+        """
         directions = [Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
         try:
             directions.remove(direction_from)
@@ -287,6 +302,16 @@ class Simulator:
         return directions[randint(0,2)] 
         
     def green_light(self, direction, lane_type):
+        """
+        Make the light green in a lane.
+
+        Parameters
+        ----------
+        direction : Direction
+            the lane you want green e.g. Direction.SOUTH
+        lane_type : string
+            the left or straight lane to green
+        """
         car = None
         if (lane_type == 'left'):
             car = self.lanes[direction].peek_left()
@@ -300,24 +325,43 @@ class Simulator:
                     car = self.lanes[direction].left.pop()
                 elif (lane_type == 'straight_right'):
                     car = self.lanes[direction].straight_right.pop()
+            return allocated
+        return False
 
     def allocate_path(self, direction_from, direction_to, car):
+        """
+        Allocates a path in the occupation matrix if it isn't occupied.
+
+        Parameters
+        ----------
+        direction_from : Direction
+            the lane to allocate from
+        direction_to : Direction
+            the lane to allocate to
+        car : Car
+            the car to be allocated.
+
+        Returns
+        -------
+        bool
+            if the path was allocated or not
+        """
         car_instructions = self.matrix_instructions[direction_from][direction_to]
         empty = True
         count = 0
+        # check if the path is empty/can be allocated
         for instruction in car_instructions:
             cell = self.occupation_matrix[instruction[0], instruction[1]]
-            if (isinstance(cell, dict)):
-                if(cell['car'].destination == direction_to and cell['car'].destination_from == direction_from):
-                    continue
-            elif(isinstance(cell, Car)):
-                if (cell.destination_from == direction_from and cell.destination == direction_to and count != 0):
-                    continue
             if (cell != None):
-                empty = False
+                # cars with the same from->to can be allocated on the same path
+                if (isinstance(cell, Car) and
+                    cell.destination_from == direction_from and cell.destination == direction_to and count != 0):
+                    pass
+                else:
+                    empty = False
             count += 1
         if (empty):
-            self.reward += len(car_instructions*150)
+            # update stats and training variables
             self.waiting_time.append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
             self.waiting_time_dict[direction_to]['y'].append((self.time - car.arrival)/self.time_steps_per_hour*60*60)
             self.waiting_time_dict[direction_to]['x'].append(self.time/self.time_steps_per_hour)
@@ -325,73 +369,92 @@ class Simulator:
             self.waiting_time_num += (self.time - car.arrival)
             self.passed_cars += 1
 
+            # place the car in the occupation matrix
             car_copy = car_instructions.copy()
             first = car_copy.pop(0)
             car.directions = car_copy
             self.occupation_matrix[first[0], first[1]] = car
-            for instruction in car_copy:
+            for count, instruction in enumerate(car_copy, start=2):
                 if (self.occupation_matrix[instruction[0], instruction[1]] == None):
-                    self.occupation_matrix[instruction[0], instruction[1]] = {'car': car}
+                    # allocations cars start further down the path, thus needs less instructions
+                    allocation_car = Car(car.destination, self.time, self.time_to_move, car.destination_from)
+                    allocation_car_directions = car_instructions.copy()
+                    for _ in range(0,count):
+                        allocation_car_directions.pop(0)
+                    allocation_car.directions = allocation_car_directions
+                    allocation_car.color = car.color
+                    self.occupation_matrix[instruction[0], instruction[1]] = allocation_car
             return True
         else:
             return False
 
     def make_rect(self, corner, width, height):
+        """
+        Creates a rect w/ graphics.py
+
+        Parameters
+        ----------
+        corner : Point
+            the point of the corner
+        width : int
+            width of rectangle in pixels
+        height : int
+            height of rectangle in pixels
+
+        Returns
+        -------
+        Rectangle
+            rectangle with the given parameters
+        """
         corner2 = corner.clone()
         corner2.move(width, height)
         return Rectangle(corner, corner2)
 
     def update_occupation_matrix(self):
+        """
+        Updates all of the cars in the occupation matrix and moves them.
+        """
         box_size = 120
+        # temp occpuancy matrix to hold next state
+        temp = np.matrix('None,None,None; None,None,None; None,None,None', dtype=Car)
         for i in range(0,3):
             for j in range(0,3):
                 car = self.occupation_matrix[i,j]
-                
-                if (car != None and not(isinstance(car, dict))):
-                    # refill the path, might be removed if car in front
-                    for path in car.directions:
-                        cell = self.occupation_matrix[path[0], path[1]]
-                        if (cell == None):
-                            self.occupation_matrix[path[0], path[1]] = {'car': car}
+                if (isinstance(car, Car)):
                     # move the car
                     moved, direction, moves_left = car.move()
                     if (moved):
-                        if (moves_left == 0):
-                            self.occupation_matrix[i,j] = None
-                        else:
-                            self.occupation_matrix[direction[0],direction[1]] = self.occupation_matrix[i,j]
-                            self.occupation_matrix[i,j] = None
+                        if (moves_left != 0):
+                            temp[direction[0],direction[1]] = self.occupation_matrix[i,j]
+                    else:
+                        temp[i,j] = self.occupation_matrix[i,j]
                 if (self.draw):
-                    noWest = Text(Point(10, 250), str(self.lanes[Direction.WEST].size()))
-                    noNorth = Text(Point(250, 10), str(self.lanes[Direction.NORTH].size()))
-                    noEast = Text(Point(475, 250), str(self.lanes[Direction.EAST].size()))
-                    nSouth = Text(Point(250, 475), str(self.lanes[Direction.SOUTH].size()))
-                    noWest.draw(self.win)
-                    obj = self.make_rect(Point(10 , 250), 20, 10)
-                    obj.setFill('white')
-                    obj.draw(self.win)
-                    noNorth.draw(self.win)
-                    noEast.draw(self.win)
-                    nSouth.draw(self.win)
                     if (car == None):
                         obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
                         obj.setFill('white')
                         obj.draw(self.win)
-                    elif(isinstance(car, dict)):
-                        obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
-                        obj.setFill('grey')
-                        obj.draw(self.win)
-                        obj_destination = Text(Point(50 + box_size*j + box_size/2, 50 + box_size*i + box_size/2), str(car['car'].destination))
-                        obj_destination.draw(self.win)
                     else:
                         obj = self.make_rect(Point(50 + box_size*j, 50 + box_size*i), box_size, box_size)
                         obj.setFill(car.color)
                         obj.draw(self.win)
                         obj_destination = Text(Point(50 + box_size*j + box_size/2, 50 + box_size*i + box_size/2), str(car.destination))
                         obj_destination.draw(self.win)
-        #print(self.occupation_matrix)
+        self.occupation_matrix = temp
 
     def string_direction_to_enum(self, dir):
+        """
+        Get Direction enum from string.
+
+        Parameters
+        ----------
+        dir : string
+            direction e.g. Direction.NORTH
+
+        Returns
+        -------
+        Direction
+            Direction named dir (if exists)
+        """
         if (dir == 'Direction.NORTH'):
             return Direction.NORTH
         elif (dir == 'Direction.SOUTH'):
@@ -402,6 +465,9 @@ class Simulator:
             return Direction.WEST
 
     def training(self):
+        """
+        Method to add X amount of cars to each lane. Used for dqn training.
+        """
         for lane in self.lanes:
             for i in range(0,20):
                 car = Car(self.get_random_direction(lane), self.time, self.time_to_move, lane) 
@@ -412,25 +478,50 @@ class Simulator:
                     self.lanes[lane].straight_right.append(car)
 
     def step(self, action):
+        """
+        The step function which updates the simulator to next state.
+
+        Parameters
+        ----------
+        action: int
+            action to perform in this step, a.k.a which lane to turn green
+
+        Returns
+        -------
+        list
+            current state of the simulation
+        int
+            reward of the action in this state
+        bool
+            if the simulation is finished or not
+        """
         self.reward = 0
         self.update_occupation_matrix()
-                
+
+        green_success = False      
         if (action == 0):
-            self.green_light(Direction.NORTH, 'left')
+            green_success = self.green_light(Direction.NORTH, 'left')
         elif (action == 1):
-            self.green_light(Direction.NORTH, 'straight_right')
+            green_success = self.green_light(Direction.NORTH, 'straight_right')
         elif (action == 2):
-            self.green_light(Direction.SOUTH, 'left')
+            green_success = self.green_light(Direction.SOUTH, 'left')
         elif (action == 3):
-            self.green_light(Direction.SOUTH, 'straight_right')
+            green_success = self.green_light(Direction.SOUTH, 'straight_right')
         elif (action == 4):
-            self.green_light(Direction.WEST, 'left')
+            green_success = self.green_light(Direction.WEST, 'left')
         elif (action == 5):
-            self.green_light(Direction.WEST, 'straight_right')
+            green_success = self.green_light(Direction.WEST, 'straight_right')
         elif (action == 6):
-            self.green_light(Direction.EAST, 'left')
+            green_success = self.green_light(Direction.EAST, 'left')
         elif (action == 7):
-            self.green_light(Direction.EAST, 'straight_right')
+            green_success = self.green_light(Direction.EAST, 'straight_right')
+        elif (action == 8):
+            # Do nothing, we don't want unnecessary scheduling...
+            self.reward = 5
+            pass
+
+        if (green_success):
+            self.reward = 10000
 
         # training done if lanes empty
         done = True
@@ -439,15 +530,6 @@ class Simulator:
             if (lane.size() != 0):
                 done = False
 
-        # TODO check this, change scale
-        for key in self.lanes:
-            car_left = self.lanes[key].peek_left()
-            if (car_left != -1):
-                self.reward -= (self.time - car_left.arrival)/(self.time_steps_per_hour/60/60)/5
-            car_straight = self.lanes[key].peek_straight_right()
-            if (car_straight != -1):
-                self.reward -= (self.time-car_straight.arrival)/(self.time_steps_per_hour/60/60)/5
-
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
             return self.get_state(), self.reward, done
@@ -455,6 +537,14 @@ class Simulator:
             return self.get_state(), self.reward, done
 
     def run(self, scheduler):
+        """
+        Method to test and compare different scheduling methods with the simulator.
+
+        Parameters
+        ----------
+        scheduler : Scheduler
+            scheduler used to dictate traffic
+        """
         if (self.stats):
             self.X = []
             self.nY_left = []
@@ -515,6 +605,14 @@ class Simulator:
 
 
     def save_stats(self, hour):
+        """
+        Save stats into lists used for plotting.
+
+        Parameters
+        ----------
+        hour : int
+            current hour in the simulation
+        """
         self.X.append(hour)
         self.nY_left.append(len(self.lanes[Direction.NORTH].left))
         self.nY_straight_right.append(len(self.lanes[Direction.NORTH].straight_right))
@@ -537,8 +635,9 @@ class Simulator:
             self.avg_waiting_time.append(0)
 
     def display_stats(self):
-        # waiting
-        #print('Avg waiting time: ' + str(sum(self.waiting_time)/len(self.waiting_time)))
+        """
+        Display the stats w/ matplotlib.
+        """
         # graphs
         color_1 = '--b'
         color_2 = '--g'

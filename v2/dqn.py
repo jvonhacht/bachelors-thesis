@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-from simulator import Simulator
+#from simulator import Simulator
 
 from entities import Direction
 
@@ -22,18 +22,13 @@ class DQNAgent:
         self.epsilon = 1.0 
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.9995
-        self.learning_rate = 0.0001
+        self.learning_rate = 0.001
         self.model = self._build_model()
 
     def _build_model(self):
         model = Sequential()
 
-        model.add(Dense(75, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(50, activation='relu'))
-        model.add(Dense(50, activation='relu'))
-        model.add(Dense(50, activation='relu'))
-        model.add(Dense(50, activation='relu'))
-        #model.add(Dense(50, activation='relu'))
+        model.add(Dense(13, input_dim=self.state_size, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
 
         model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
@@ -61,9 +56,12 @@ class DQNAgent:
 
     def act(self, state):
         if (np.random.rand() <= self.epsilon):
-            return random.randint(0,7)
+            action = random.randint(0,8)
+            #print('selecting random: ' + str(action))
+            return action
         
         act_values = self.model.predict(state)
+        #print('selecting: ' + str(np.argmax(act_values[0])))
         return np.argmax(act_values[0])
 
     def predict(self, state):
@@ -77,26 +75,29 @@ class DQNAgent:
         self.model.save_weights(name)
 
 if __name__ == "__main__":
-    env = Simulator(1000, traffic='heavy', draw=False)
-    agent = DQNAgent(25, 8)
-    episodes = 1000
-    batch_size = 32
+    env = Simulator(10000, traffic='heavy', draw=False)
+    agent = DQNAgent(17, 9)
+    episodes = 100
+    batch_size = 192
     done = False
+    env.get_state()
+
+    file = open("save/stats.txt", "w")
 
     print('Started training...')
     for e in range(episodes):
         # new episode, fresh simulation
         state = env.reset()
         env.training()
-        state = np.reshape(state, [1, 25])
+        state = np.reshape(state, [1, 17])
         time_step = 0
         while(True):
             start = time.time()
             action = agent.act(state)
-            print(action)
+            #print(action)
             next_state, reward, done = env.step(action)
-            print('reward: ' + str(reward))
-            next_state = np.reshape(next_state, [1, 25])
+            #print('reward: ' + str(reward))
+            next_state = np.reshape(next_state, [1, 17])
 
             agent.remember(state, action, reward, next_state, done)
             state = next_state
@@ -109,8 +110,12 @@ if __name__ == "__main__":
                 print(env.lanes[Direction.EAST])
                 print(env.lanes[Direction.WEST])
                 print('timestep: ' + str(time_step))
-                print('sim time: ' + str(env.time/env.time_steps_per_hour))
-
+                print('sim time: ' + str(env.time))
+                print(action)
+                print('reward: ' + str(reward))
+                print('Epsilon: ' + str(agent.epsilon))
+                print(env.occupation_matrix)
+                file.write(str(time_step) + ' \n')
             if done:
                 # print the score and break out of the loop
                 print("episode: {}/{}, score: {}"
@@ -129,3 +134,4 @@ if __name__ == "__main__":
             #print('step' + str(time_step) + ': ' + str(end - start))
         if (e % 10 == 0):
             agent.save("./save/cartpole-dqn.h5")
+    file.close()
