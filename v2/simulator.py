@@ -21,7 +21,7 @@ class Simulator:
     # PARAMETERS
     time_steps_per_hour = 18000
     car_add_frequency = 40
-    time_to_move = 10
+    time_to_move = 2
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False, save=False):
         # legacy for learning not used?
@@ -128,24 +128,50 @@ class Simulator:
             state of the simulation as NN input
         """
         state = []
+
+        total_cars = self.lanes[Direction.NORTH].size() + \
+                self.lanes[Direction.SOUTH].size() + \
+                self.lanes[Direction.WEST].size() + \
+                self.lanes[Direction.EAST].size()
+                
+        highest_waiting_time = 0
         for key in self.lanes:
             lane = self.lanes[key]
-            car_left = lane.peek_left()
-            if (car_left == -1):
-                state.append(0)
-            else:
-                state.append(1)
-            car_straight = lane.peek_straight_right()
-            if (car_straight == -1):
-                state.append(0)
-            else:
-                state.append(1)
+            left_car = lane.peek_left()
+            straight_car = lane.peek_straight_right()
+            if (left_car != -1 and (self.time - left_car.arrival) > highest_waiting_time):
+                highest_waiting_time = (self.time - left_car.arrival)
+            if (straight_car != -1 and (self.time - straight_car.arrival) > highest_waiting_time):
+                highest_waiting_time = (self.time - straight_car.arrival)
+        
+        if (highest_waiting_time == 0): 
+            highest_waiting_time = 1
+        
+        # occupation matrix
         for i in range(0,3):
             for j in range(0,3):
                 if (isinstance(self.occupation_matrix[i,j], Car)):
                     state.append(1)
                 else:
                     state.append(0)
+
+        # normalized waiting time for all lanes
+        for key in self.lanes:
+            lane = self.lanes[key]
+            left_car = lane.peek_left()
+            straight_car = lane.peek_straight_right()
+            if (left_car != -1):
+                state.append((self.time - left_car.arrival)/highest_waiting_time)
+                state.append(lane.size()/total_cars)
+            else:
+                state.append(0)
+                state.append(0)
+            if (straight_car != -1):
+                state.append((self.time - straight_car.arrival)/highest_waiting_time)
+                state.append(lane.size()/total_cars)
+            else:
+                state.append(0)
+                state.append(0)
         return state
 
     def fit_curve(self, graph):
@@ -476,6 +502,7 @@ class Simulator:
                     self.lanes[lane].left.append(car)
                 else:
                     self.lanes[lane].straight_right.append(car)
+        return self.get_state()
 
     def step(self, action):
         """
@@ -517,11 +544,34 @@ class Simulator:
             green_success = self.green_light(Direction.EAST, 'straight_right')
         elif (action == 8):
             # Do nothing, we don't want unnecessary scheduling...
-            self.reward = 5
+            self.reward = 150
             pass
 
         if (green_success):
-            self.reward = 10000
+            neg_reward = 0
+            for key in self.lanes:
+                lane = self.lanes[key]
+                car_left = lane.peek_left()
+                car_straight = lane.peek_straight_right()
+                if (car_left != -1):
+                    neg_reward += (self.time - car_left.arrival)
+                if (car_straight != -1):
+                    neg_reward += (self.time - car_straight.arrival)
+
+            self.reward = 10000 - neg_reward
+            # set a min reward, don't want negative values
+            if (self.reward < 500):
+                self.reward = 500
+        
+        delta_diff = 10
+        if (abs(self.lanes[Direction.NORTH].size() - self.lanes[Direction.SOUTH].size()) < delta_diff and
+            abs(self.lanes[Direction.NORTH].size() - self.lanes[Direction.EAST].size()) < delta_diff and 
+            abs(self.lanes[Direction.NORTH].size() - self.lanes[Direction.WEST].size()) < delta_diff and
+            abs(self.lanes[Direction.WEST].size() - self.lanes[Direction.EAST].size()) < delta_diff and
+            abs(self.lanes[Direction.SOUTH].size() - self.lanes[Direction.EAST].size()) < delta_diff and
+            abs(self.lanes[Direction.SOUTH].size() - self.lanes[Direction.WEST].size()) < delta_diff and
+            not(self.reward == 150)):
+            self.reward *= 2
 
         # training done if lanes empty
         done = True
@@ -642,16 +692,31 @@ class Simulator:
         color_1 = '--b'
         color_2 = '--g'
         color_3 = 'r'
-        plt.subplot(2,1,1)
         combined_total = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_total, self.sY_total, self.eY_total, self.wY_total)))
         combined_left = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_left, self.sY_left, self.eY_left, self.wY_left)))
         combined_straight = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_straight_right,
             self.sY_straight_right, self.eY_straight_right, self.wY_straight_right)))
-        plt.plot(self.X, combined_total, color_3,label='Total')
-        plt.plot(self.X, combined_left, color_1,label='Left turners')
-        plt.plot(self.X, combined_straight, color_2,label='Straight/right turners')
+        plt.subplot(5,1,1)
+        plt.plot(self.X, self.nY_total, color_3,label='nTotal')
+        plt.plot(self.X, self.nY_left, color_1,label='Left turners')
+        plt.plot(self.X, self.nY_straight_right, color_2,label='Straight/right turners')
         plt.legend(loc='upper left')
-        plt.subplot(2,1,2)
+        plt.subplot(5,1,2)
+        plt.plot(self.X, self.sY_total, color_3,label='sTotal')
+        plt.plot(self.X, self.sY_left, color_1,label='Left turners')
+        plt.plot(self.X, self.sY_straight_right, color_2,label='Straight/right turners')
+        plt.legend(loc='upper left')
+        plt.subplot(5,1,3)
+        plt.plot(self.X, self.eY_total, color_3,label='eTotal')
+        plt.plot(self.X, self.eY_left, color_1,label='Left turners')
+        plt.plot(self.X, self.eY_straight_right, color_2,label='Straight/right turners')
+        plt.legend(loc='upper left')
+        plt.subplot(5,1,4)
+        plt.plot(self.X, self.wY_total, color_3,label='wTotal')
+        plt.plot(self.X, self.wY_left, color_1,label='Left turners')
+        plt.plot(self.X, self.wY_straight_right, color_2,label='Straight/right turners')
+        plt.legend(loc='upper left')
+        plt.subplot(5,1,5)
         plt.plot(self.waiting_time_dict[Direction.NORTH]['x'], self.waiting_time_dict[Direction.NORTH]['y'], '.b', label='Average waiting time')
         plt.plot(self.waiting_time_dict[Direction.SOUTH]['x'], self.waiting_time_dict[Direction.SOUTH]['y'], '.g', label='Average waiting time')
         plt.plot(self.waiting_time_dict[Direction.WEST]['x'], self.waiting_time_dict[Direction.WEST]['y'], '.r', label='Average waiting time')

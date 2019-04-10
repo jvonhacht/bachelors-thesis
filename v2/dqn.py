@@ -18,7 +18,7 @@ class DQNAgent:
 
         # params
         self.memory = deque(maxlen=10000)
-        self.gamma = 0.995  
+        self.gamma = 0.95
         self.epsilon = 1.0 
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.9995
@@ -28,7 +28,7 @@ class DQNAgent:
     def _build_model(self):
         model = Sequential()
 
-        model.add(Dense(13, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(20, input_dim=self.state_size, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
 
         model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
@@ -76,7 +76,7 @@ class DQNAgent:
 
 if __name__ == "__main__":
     env = Simulator(10000, traffic='heavy', draw=False)
-    agent = DQNAgent(17, 9)
+    agent = DQNAgent(25, 9)
     episodes = 100
     batch_size = 192
     done = False
@@ -88,16 +88,21 @@ if __name__ == "__main__":
     for e in range(episodes):
         # new episode, fresh simulation
         state = env.reset()
-        env.training()
-        state = np.reshape(state, [1, 17])
+        state = np.reshape(state, [1, 25])
         time_step = 0
-        while(True):
+        sim_length = 1500
+        while(time_step <= sim_length):
+            # spawn car
+            if (time_step % 10 == 0):
+                direction = env.get_random_direction("")
+                env.add_direction(direction)
+
             start = time.time()
             action = agent.act(state)
             #print(action)
             next_state, reward, done = env.step(action)
             #print('reward: ' + str(reward))
-            next_state = np.reshape(next_state, [1, 17])
+            next_state = np.reshape(next_state, [1, 25])
 
             agent.remember(state, action, reward, next_state, done)
             state = next_state
@@ -105,6 +110,7 @@ if __name__ == "__main__":
 
             if (time_step % 300 == 0):
                 pass
+                print(state)
                 print(env.lanes[Direction.NORTH])
                 print(env.lanes[Direction.SOUTH])
                 print(env.lanes[Direction.EAST])
@@ -116,7 +122,7 @@ if __name__ == "__main__":
                 print('Epsilon: ' + str(agent.epsilon))
                 print(env.occupation_matrix)
                 file.write(str(time_step) + ' \n')
-            if done:
+            if time_step == sim_length:
                 # print the score and break out of the loop
                 print("episode: {}/{}, score: {}"
                         .format(e, episodes, reward))

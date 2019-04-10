@@ -19,12 +19,12 @@ class Lane:
 
     def peek_straight_right(self):
         if self.straight_right:
-            return self.straight_right[-1]
+            return self.straight_right[0]
         return -1
 
     def peek_left(self):
         if self.left:
-            return self.left[-1]
+            return self.left[0]
         return -1
 
     def __str__(self):
