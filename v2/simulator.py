@@ -13,14 +13,14 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-#from dqn_scheduler import DQNScheduler
+from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000
-    car_add_frequency = 40
+    car_add_frequency = 100
     time_to_move = 2
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False, save=False):
@@ -560,17 +560,11 @@ class Simulator:
             car_left = lane.peek_left()
             if (car_left != -1):
                 neg_reward = (self.time - car_left.arrival) ** 2 / 20000
-                if (self.reward - neg_reward >= -1):
-                    self.reward -= neg_reward
-                else:
-                    self.reward = -1
+                self.reward -= neg_reward
             car_straight = lane.peek_straight_right()
             if (car_straight != -1):
                 neg_reward = (self.time - car_straight.arrival) ** 2 / 20000
-                if (self.reward - neg_reward >= -1):
-                    self.reward -= neg_reward
-                else:
-                    self.reward = -1
+                self.reward -= neg_reward
 
         # training done if lanes empty
         done = True

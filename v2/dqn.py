@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-from simulator import Simulator
+#from simulator import Simulator
 
 from entities import Direction
 
