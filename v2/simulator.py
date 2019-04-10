@@ -13,7 +13,7 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-from dqn_scheduler import DQNScheduler
+#from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:
@@ -522,7 +522,7 @@ class Simulator:
         bool
             if the simulation is finished or not
         """
-        self.reward = 0
+        self.reward = 0.1
         self.update_occupation_matrix()
 
         green_success = False      
@@ -543,35 +543,33 @@ class Simulator:
         elif (action == 7):
             green_success = self.green_light(Direction.EAST, 'straight_right')
         elif (action == 8):
-            # Do nothing, we don't want unnecessary scheduling...
-            self.reward = 150
+            # Do nothing, we don't want unnecessary scheduling?
+            self.reward = 0
             pass
 
-        if (green_success):
-            neg_reward = 0
-            for key in self.lanes:
-                lane = self.lanes[key]
-                car_left = lane.peek_left()
-                car_straight = lane.peek_straight_right()
-                if (car_left != -1):
-                    neg_reward += (self.time - car_left.arrival)
-                if (car_straight != -1):
-                    neg_reward += (self.time - car_straight.arrival)
-
-            self.reward = 10000 - neg_reward
-            # set a min reward, don't want negative values
-            if (self.reward < 500):
-                self.reward = 500
+        if (self.reward == 0):
+            pass
+        elif (green_success):
+            self.reward = 1
+        else:
+            self.reward = -1
         
-        delta_diff = 10
-        if (abs(self.lanes[Direction.NORTH].size() - self.lanes[Direction.SOUTH].size()) < delta_diff and
-            abs(self.lanes[Direction.NORTH].size() - self.lanes[Direction.EAST].size()) < delta_diff and 
-            abs(self.lanes[Direction.NORTH].size() - self.lanes[Direction.WEST].size()) < delta_diff and
-            abs(self.lanes[Direction.WEST].size() - self.lanes[Direction.EAST].size()) < delta_diff and
-            abs(self.lanes[Direction.SOUTH].size() - self.lanes[Direction.EAST].size()) < delta_diff and
-            abs(self.lanes[Direction.SOUTH].size() - self.lanes[Direction.WEST].size()) < delta_diff and
-            not(self.reward == 150)):
-            self.reward *= 2
+        for key in self.lanes:
+            lane = self.lanes[key]
+            car_left = lane.peek_left()
+            if (car_left != -1):
+                neg_reward = (self.time - car_left.arrival) ** 2 / 20000
+                if (self.reward - neg_reward >= -1):
+                    self.reward -= neg_reward
+                else:
+                    self.reward = -1
+            car_straight = lane.peek_straight_right()
+            if (car_straight != -1):
+                neg_reward = (self.time - car_straight.arrival) ** 2 / 20000
+                if (self.reward - neg_reward >= -1):
+                    self.reward -= neg_reward
+                else:
+                    self.reward = -1
 
         # training done if lanes empty
         done = True

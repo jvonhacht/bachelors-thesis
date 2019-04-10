@@ -7,7 +7,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 
 # UN COMMENT FOR TRAINING
-#from simulator import Simulator
+from simulator import Simulator
 
 from entities import Direction
 
@@ -90,18 +90,16 @@ if __name__ == "__main__":
         state = env.reset()
         state = np.reshape(state, [1, 25])
         time_step = 0
-        sim_length = 1500
-        while(time_step <= sim_length):
+        max_sim_length = 1500
+        while(time_step <= max_sim_length):
             # spawn car
-            if (time_step % 10 == 0):
+            if (time_step % 5 == 0 and time_step <= 750):
                 direction = env.get_random_direction("")
                 env.add_direction(direction)
 
             start = time.time()
             action = agent.act(state)
-            #print(action)
             next_state, reward, done = env.step(action)
-            #print('reward: ' + str(reward))
             next_state = np.reshape(next_state, [1, 25])
 
             agent.remember(state, action, reward, next_state, done)
@@ -122,7 +120,8 @@ if __name__ == "__main__":
                 print('Epsilon: ' + str(agent.epsilon))
                 print(env.occupation_matrix)
                 file.write(str(time_step) + ' \n')
-            if time_step == sim_length:
+            # we are done if max sim or no cars left after car spawn stopped
+            if time_step == max_sim_length or (done and time_step >= 750):
                 # print the score and break out of the loop
                 print("episode: {}/{}, score: {}"
                         .format(e, episodes, reward))
