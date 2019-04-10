@@ -321,11 +321,12 @@ class Simulator:
             the random direction
         """
         directions = [Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
+        val = randint(0,2)
         try:
             directions.remove(direction_from)
         except ValueError:
-            pass
-        return directions[randint(0,2)] 
+            val = randint(0,3)
+        return directions[val] 
         
     def green_light(self, direction, lane_type):
         """
@@ -712,6 +713,7 @@ class Simulator:
         plt.subplot(5,1,4)
         plt.plot(self.X, self.wY_total, color_3,label='wTotal')
         plt.plot(self.X, self.wY_left, color_1,label='Left turners')
+        print(self.wY_left)
         plt.plot(self.X, self.wY_straight_right, color_2,label='Straight/right turners')
         plt.legend(loc='upper left')
         plt.subplot(5,1,5)

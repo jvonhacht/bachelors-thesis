@@ -85,7 +85,7 @@ if __name__ == "__main__":
     file = open("save/stats.txt", "w")
 
     print('Started training...')
-    for e in range(episodes):
+    for e in range(episodes+1):
         # new episode, fresh simulation
         state = env.reset()
         state = np.reshape(state, [1, 25])
@@ -93,8 +93,9 @@ if __name__ == "__main__":
         max_sim_length = 1500
         while(time_step <= max_sim_length):
             # spawn car
-            if (time_step % 5 == 0 and time_step <= 750):
+            if (time_step % 2 == 0 and time_step <= 750):
                 direction = env.get_random_direction("")
+                print(direction)
                 env.add_direction(direction)
 
             start = time.time()
