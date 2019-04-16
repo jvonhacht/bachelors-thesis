@@ -13,7 +13,7 @@ from entities import Direction
 from entities import Lane
 
 from fixed_scheduler import FixedScheduler
-from dqn_scheduler import DQNScheduler
+#from dqn_scheduler import DQNScheduler
 from random_scheduler import RandomScheduler
 
 class Simulator:

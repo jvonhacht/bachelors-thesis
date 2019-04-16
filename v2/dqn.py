@@ -9,7 +9,7 @@ from keras.models import load_model
 
 
 # UN COMMENT FOR TRAINING
-#from simulator import Simulator
+from simulator import Simulator
 
 from entities import Direction
 
@@ -86,8 +86,8 @@ class DQNAgent:
 if __name__ == "__main__":
     env = Simulator(10000, traffic='heavy', draw=False)
     agent = DQNAgent(25, 6)
-    #agent.load('save/car-0-dqn.h5')
-    #agent.epsilon = 0.01
+    agent.load('save/car-100-dqn.h5')
+    agent.epsilon = 0.01
     episodes = 100
     batch_size = 192
     done = False
