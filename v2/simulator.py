@@ -20,7 +20,7 @@ class Simulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000
-    car_add_frequency = 100
+    car_add_frequency = 250
     time_to_move = 2
 
     def __init__(self, minutes, traffic='stochastic', draw=False, stats=False, save=False):
@@ -352,8 +352,8 @@ class Simulator:
                     car = self.lanes[direction].left.pop()
                 elif (lane_type == 'straight_right'):
                     car = self.lanes[direction].straight_right.pop()
-            return allocated
-        return False
+            return 1 if allocated else 0
+        return 0
 
     def allocate_path(self, direction_from, direction_to, car):
         """
@@ -523,55 +523,73 @@ class Simulator:
         bool
             if the simulation is finished or not
         """
-        self.reward = 0.1
+        self.reward = 0
         self.update_occupation_matrix()
+        greened_lanes = [Direction.NONE, '']
 
-        green_success = False      
+        green_success = 0      
         if (action == 0):
-            green_success = self.green_light(Direction.NORTH, 'left')
+            greened_lanes = []
+            green_success += self.green_light(Direction.NORTH, 'straight_right')
+            green_success += self.green_light(Direction.SOUTH, 'straight_right')
+            greened_lanes.append((Direction.NORTH, 'straight_right'))
+            greened_lanes.append((Direction.SOUTH, 'straight_right'))
         elif (action == 1):
-            green_success = self.green_light(Direction.NORTH, 'straight_right')
+            greened_lanes = []
+            green_success += self.green_light(Direction.WEST, 'straight_right')
+            green_success += self.green_light(Direction.EAST, 'straight_right')
+            greened_lanes.append((Direction.WEST, 'straight_right'))
+            greened_lanes.append((Direction.EAST, 'straight_right'))
         elif (action == 2):
-            green_success = self.green_light(Direction.SOUTH, 'left')
+            greened_lanes = []
+            green_success += self.green_light(Direction.NORTH, 'straight_right')
+            green_success += self.green_light(Direction.NORTH, 'left')
+            greened_lanes.append((Direction.NORTH, 'straight_right'))
+            greened_lanes.append((Direction.NORTH, 'left'))
         elif (action == 3):
-            green_success = self.green_light(Direction.SOUTH, 'straight_right')
+            greened_lanes = []
+            green_success += self.green_light(Direction.SOUTH, 'straight_right')
+            green_success += self.green_light(Direction.SOUTH, 'left')
+            greened_lanes.append((Direction.SOUTH, 'straight_right'))
+            greened_lanes.append((Direction.SOUTH, 'left'))
         elif (action == 4):
-            green_success = self.green_light(Direction.WEST, 'left')
+            greened_lanes = []
+            green_success += self.green_light(Direction.WEST, 'straight_right')
+            green_success += self.green_light(Direction.WEST, 'left')
+            greened_lanes.append((Direction.WEST, 'straight_right'))
+            greened_lanes.append((Direction.WEST, 'left'))
         elif (action == 5):
-            green_success = self.green_light(Direction.WEST, 'straight_right')
-        elif (action == 6):
-            green_success = self.green_light(Direction.EAST, 'left')
-        elif (action == 7):
-            green_success = self.green_light(Direction.EAST, 'straight_right')
-        elif (action == 8):
-            # Do nothing, we don't want unnecessary scheduling?
-            self.reward = 0
-            pass
+            greened_lanes = []
+            green_success += self.green_light(Direction.EAST, 'straight_right')
+            green_success += self.green_light(Direction.EAST, 'left')
+            greened_lanes.append((Direction.EAST, 'straight_right'))
+            greened_lanes.append((Direction.EAST, 'left'))
 
-        if (self.reward == 0):
-            pass
-        elif (green_success):
-            self.reward = 1
+        # not needed
+        if (green_success > 0):
+            self.reward = green_success
         else:
-            self.reward = -1
+            self.reward = 0 
         
         for key in self.lanes:
             lane = self.lanes[key]
             car_left = lane.peek_left()
-            if (car_left != -1):
-                neg_reward = (self.time - car_left.arrival) ** 2 / 20000
+            if (car_left != -1 and not(greened_lanes[0] == key) and not(greened_lanes[1] == 'left') ):
+                neg_reward = (self.time - car_left.arrival) / 6000
                 self.reward -= neg_reward
             car_straight = lane.peek_straight_right()
-            if (car_straight != -1):
-                neg_reward = (self.time - car_straight.arrival) ** 2 / 20000
+            if (car_straight != -1 and not(greened_lanes[0] == key) and not(greened_lanes[1] == 'straight_right')):
+                neg_reward = (self.time - car_straight.arrival) / 6000
                 self.reward -= neg_reward
 
         # training done if lanes empty
-        done = True
+        done = False
         for lane in self.lanes:
             lane = self.lanes[lane]
             if (lane.size() != 0):
-                done = False
+                break
+        else:
+            done = True
 
         self.time += 1
         if (self.time >= self.time_steps_per_hour/60*self.minutes):
@@ -603,15 +621,18 @@ class Simulator:
             self.eY_straight_right = []
             self.eY_total = []
             self.avg_waiting_time = []
+            self.actions = {}
 
         print('day start')
         while (self.time < self.time_steps_per_hour*24):
             self.update_occupation_matrix()
             hour = self.time / self.time_steps_per_hour
 
-            if (self.time % self.car_add_frequency == 0):
+            if (self.time % 50 == 0):
                 if (self.save):
-                    self.stochastic_add(hour)
+                    #self.stochastic_add(hour)
+                    direction = self.get_random_direction("")
+                    self.add_direction(direction)
             
             if (not(self.save)):
                 try:
@@ -629,7 +650,12 @@ class Simulator:
                 graphics_hour = Text(Point(100, 20), 'Hour: ' + str(hour.__round__(2)))
                 graphics_hour.draw(self.win)
 
-            self.step(scheduler.schedule())
+            action = scheduler.schedule()
+            self.actions[action] = self.actions.get(action, 0) + 1
+            _, _, done = self.step(action)
+            if (done):
+                #break
+                pass
 
             #self.time -= 1
             if (self.time/self.time_steps_per_hour % 1 == 0):
@@ -685,10 +711,11 @@ class Simulator:
         color_1 = '--b'
         color_2 = '--g'
         color_3 = 'r'
-        combined_total = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_total, self.sY_total, self.eY_total, self.wY_total)))
-        combined_left = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_left, self.sY_left, self.eY_left, self.wY_left)))
-        combined_straight = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_straight_right,
-            self.sY_straight_right, self.eY_straight_right, self.wY_straight_right)))
+        #combined_total = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_total, self.sY_total, self.eY_total, self.wY_total)))
+        #combined_left = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_left, self.sY_left, self.eY_left, self.wY_left)))
+        #combined_straight = np.array(list(map(lambda x, y, z, w: x+y+z+w, self.nY_straight_right,
+        #    self.sY_straight_right, self.eY_straight_right, self.wY_straight_right)))
+        print(self.actions)
         plt.subplot(5,1,1)
         plt.plot(self.X, self.nY_total, color_3,label='nTotal')
         plt.plot(self.X, self.nY_left, color_1,label='Left turners')
@@ -707,7 +734,6 @@ class Simulator:
         plt.subplot(5,1,4)
         plt.plot(self.X, self.wY_total, color_3,label='wTotal')
         plt.plot(self.X, self.wY_left, color_1,label='Left turners')
-        print(self.wY_left)
         plt.plot(self.X, self.wY_straight_right, color_2,label='Straight/right turners')
         plt.legend(loc='upper left')
         plt.subplot(5,1,5)

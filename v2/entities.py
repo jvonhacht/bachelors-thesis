@@ -6,6 +6,7 @@ class Direction(Enum):
     SOUTH = 2
     EAST = 3
     WEST = 4
+    NONE = 5
 
 class Lane:
     def __init__(self, name, left_turn):
