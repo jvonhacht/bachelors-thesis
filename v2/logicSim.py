@@ -19,7 +19,7 @@ from entities import Lane
 class LogicSimulator:
 
     # PARAMETERS
-    time_steps_per_hour = 18000            
+    time_steps_per_hour = 18000                    
 
     def __init__(self, minutes, traffic='stochastic'):                      
         # simulation runtime
@@ -32,6 +32,11 @@ class LogicSimulator:
             Direction.WEST: Lane('West', Direction.NORTH),
             Direction.EAST: Lane('East', Direction.SOUTH)
         }
+        
+        # fill lanes with cars
+        for i in range(1, 20):  
+            direction = self.get_random_direction(None)                       
+            self.lanes[direction].straight_right.append(Car(self.get_random_direction(direction), direction))        
                     
     def get_state(self):
         """
@@ -60,9 +65,40 @@ class LogicSimulator:
             reward of the action in this state
         bool
             if the simulation is finished or not
-        """            
+        """ 
+
+    def get_random_direction(self, dir_from):
+        """
+        Get a random direction that is not direction_from.
+
+        Parameters
+        ----------
+        direction_from : Direction
+            the direction you want excluded in random
+            
+        Returns
+        -------
+        Direction
+            the random direction
+        """
+        dirs = [Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]                
+        try: 
+            dirs.remove(dir_from) 
+        except ValueError:
+            # Non-valid direction specified
+            pass         
+        return random.choice(dirs)
+
+class Car:
+    def __init__(self, destination, destination_from):
+        self.destination = destination
+        self.destination_from = destination_from                
 
 if __name__ == "__main__":
-    simulator = LogicSimulator(1440)        
+    simulator = LogicSimulator(1440)      
+    for i in range(1,5):
+        print(simulator.lanes[i].size())
+
+    
     
     
