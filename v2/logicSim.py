@@ -63,7 +63,17 @@ class LogicSimulator:
                 state.append(float(lane_sizes[i])/max_amount)
         
         print(state)
-        return state            
+        return state
+
+    def remove_car(self, direction, lane_type):
+        try:                
+            if (lane_type == 'left'):
+                self.lanes[direction].left.popleft() 
+            elif (lane_type == 'straight_right'):
+                self.lanes[direction].straight_right.popleft() 
+        except:
+            return False
+        return True
 
     def step(self, action):
         """
@@ -85,42 +95,35 @@ class LogicSimulator:
         """ 
         reward = 0
 
+        success = False
         if (action == 0):
-            try:                
-                self.lanes[Direction.NORTH].straight_right.popleft()                        
-            except:
-                pass
-            try:                            
-                self.lanes[Direction.NORTH].left.popleft() 
-            except:
-                pass
+            north_success = self.remove_car(Direction.NORTH, 'straight_right')
+            south_success = self.remove_car(Direction.SOUTH, 'straight_right')
+            success = north_success or south_success
         elif (action == 1):  
-            try:
-                self.lanes[Direction.SOUTH].straight_right.popleft()         
-            except:
-                pass
-            try:
-                self.lanes[Direction.SOUTH].left.popleft()                              
-            except:
-                pass
+            west_success = self.remove_car(Direction.WEST, 'straight_right')
+            east_success = self.remove_car(Direction.EAST, 'straight_right')
+            success = west_success or east_success
         elif (action == 2):
-            try:
-                self.lanes[Direction.WEST].straight_right.popleft()         
-            except:
-                pass
-            try:
-                self.lanes[Direction.WEST].left.popleft()         
-            except:
-                pass
+            left_success = self.remove_car(Direction.NORTH, 'left')
+            straight_success = self.remove_car(Direction.NORTH, 'straight_right')
+            success = left_success or straight_success
         elif (action == 3):
-            try:
-                self.lanes[Direction.EAST].straight_right.popleft()         
-            except:
-                pass
-            try:
-                self.lanes[Direction.EAST].left.popleft()        
-            except:
-                pass
+            left_success = self.remove_car(Direction.SOUTH, 'left')
+            straight_success = self.remove_car(Direction.SOUTH, 'straight_right')
+            success = left_success or straight_success
+        elif (action == 4):
+            left_success = self.remove_car(Direction.WEST, 'left')
+            straight_success = self.remove_car(Direction.WEST, 'straight_right')
+            success = left_success or straight_success
+        elif (action == 5):
+            left_success = self.remove_car(Direction.EAST, 'left')
+            straight_success = self.remove_car(Direction.EAST, 'straight_right')
+            success = left_success or straight_success
+
+        # basic reward if green light
+        if (success):
+            reward = 1
 
         done = False if self.get_car_amount() != 0 else True      
         
