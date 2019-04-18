@@ -20,22 +20,25 @@ class LogicSimulator:
     # PARAMETERS
     time_steps_per_hour = 18000                    
 
-    def __init__(self):                     
+    def __init__(self):       
+        # init simulation counter
+        self.time = 0
+
         # initialize lanes
         self.lanes = {
-            Direction.NORTH: Lane('North', Direction.EAST),
-            Direction.SOUTH: Lane('South', Direction.WEST),
-            Direction.WEST: Lane('West', Direction.NORTH),
-            Direction.EAST: Lane('East', Direction.SOUTH)
+            Direction.NORTH: Lane('North'),
+            Direction.SOUTH: Lane('South'),
+            Direction.WEST: Lane('West'),
+            Direction.EAST: Lane('East')
         }
         
         # fill lanes with cars
         for _ in range(0, 100):  
             direction = self.get_random_direction(Direction.NONE)  
             if(randint(0,2) == 1):
-                self.lanes[direction].straight_right.append(Car(self.get_random_direction(direction), direction))                    
+                self.lanes[direction].straight_right.append(1)                    
             else:            
-                self.lanes[direction].left.append(Car(self.get_random_direction(direction), direction))                                
+                self.lanes[direction].left.append(1)                                
                     
     def get_state(self):
         """
@@ -55,13 +58,32 @@ class LogicSimulator:
         
         # amount of car in max lane
         max_amount = max(lane_sizes) 
-                        
-        if(max_amount != 0):
-            # calculate car amount in each lane 
-            # relative to maximum lane size
-            for i in range(0, 4):            
-                state.append(float(lane_sizes[i])/max_amount)
+        if(max_amount == 0):
+            max_amount = 1                        
         
+        # calculate car amount in each lane 
+        # relative to maximum lane size
+        for i in range(0, 4):            
+            state.append(float(lane_sizes[i])/max_amount)
+        
+        # list of total waiting 
+        # time for each lane
+        wait_size = []
+
+        # get total waiting time for each lane
+        for lane in self.lanes:
+            wait_size.append(self.lanes[lane].get_total_wait_time())
+        
+        # maximum waiting time
+        max_wait = max(wait_size)        
+        if(max_wait == 0):
+            max_wait = 1
+        
+        # calculate relative waiting 
+        # time for each lane
+        for i in range(0, 4):            
+            state.append(float(wait_size[i])/max_wait)
+
         print(state)
         return state
 
@@ -94,6 +116,7 @@ class LogicSimulator:
             if the simulation is finished or not
         """ 
         reward = 0
+        self.time += 1
 
         success = False
         if (action == 0):
@@ -171,7 +194,7 @@ if __name__ == "__main__":
 
     done = False
     while not done:
-        done = simulator.step(randint(0,3))[2]              
+        done = simulator.step(randint(0,6))[2]              
 
     for i in range(1,5):
         print(simulator.lanes[i].size())    

@@ -9,11 +9,10 @@ class Direction(Enum):
     NONE = 5
 
 class Lane:
-    def __init__(self, name, left_turn):
-        self.left = deque()
-        self.straight_right = deque()
-        self.left_turn = left_turn
+    def __init__(self, name):
         self.name = name
+        self.left = deque()
+        self.straight_right = deque()                
 
     def size(self):
         return len(self.left) + len(self.straight_right)
@@ -28,5 +27,13 @@ class Lane:
             return self.left[0]
         return -1
 
+    def get_total_wait_time(self):
+        total_wait = 0
+        for time in self.straight_right:
+            total_wait += time
+        for time in self.left:
+            total_wait += time
+        return total_wait
+
     def __str__(self):
-        return self.name + ': ' + str(self.size()) + ' cars left' 
+        return name + ', car amount: ' + str(self.size()) 
