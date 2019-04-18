@@ -1,7 +1,6 @@
 import time
 #import numpy as np
 #import matplotlib
-#matplotlib.use("TkAgg")
 #from matplotlib import pyplot as plt
 import random
 import copy
@@ -21,10 +20,7 @@ class LogicSimulator:
     # PARAMETERS
     time_steps_per_hour = 18000                    
 
-    def __init__(self, minutes, traffic='stochastic'):                      
-        # simulation runtime
-        self.minutes = minutes
-
+    def __init__(self):                     
         # initialize lanes
         self.lanes = {
             Direction.NORTH: Lane('North', Direction.EAST),
@@ -34,14 +30,12 @@ class LogicSimulator:
         }
         
         # fill lanes with cars
-        for i in range(0, 100):  
+        for _ in range(0, 100):  
             direction = self.get_random_direction(Direction.NONE)  
             if(randint(0,2) == 1):
                 self.lanes[direction].straight_right.append(Car(self.get_random_direction(direction), direction))                    
             else:            
                 self.lanes[direction].left.append(Car(self.get_random_direction(direction), direction))                                
-
-        self.reward = 0
                     
     def get_state(self):
         """
@@ -89,7 +83,7 @@ class LogicSimulator:
         bool
             if the simulation is finished or not
         """ 
-        self.reward = 0
+        reward = 0
 
         if (action == 0):
             try:                
@@ -130,7 +124,7 @@ class LogicSimulator:
 
         done = False if self.get_car_amount() != 0 else True      
         
-        return self.get_state(), self.reward, done
+        return self.get_state(), reward, done
 
 
     def get_random_direction(self, dir_from):
@@ -167,7 +161,7 @@ class Car:
         self.destination_from = destination_from                
 
 if __name__ == "__main__":
-    simulator = LogicSimulator(1440)      
+    simulator = LogicSimulator()      
     for i in range(1,5):
         print(simulator.lanes[i].size())
     simulator.get_state()
