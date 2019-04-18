@@ -33,12 +33,12 @@ class LogicSimulator:
         }
         
         # fill lanes with cars
-        for _ in range(0, 100):  
+        for i in range(0, 100):  
             direction = self.get_random_direction(Direction.NONE)  
-            if(randint(0,2) == 1):
-                self.lanes[direction].straight_right.append(1)                    
+            if(randint(0, 1) == 1):
+                self.lanes[direction].straight_right.append(0)                    
             else:            
-                self.lanes[direction].left.append(1)                                
+                self.lanes[direction].left.append(0)                                
                     
     def get_state(self):
         """
@@ -54,8 +54,9 @@ class LogicSimulator:
 
         # get car amount of lanes
         for lane in self.lanes:
-            lane_sizes.append(self.lanes[lane].size())
-        
+            lane_sizes.append(self.lanes[lane].size())        
+        #print(lane_sizes)
+
         # amount of car in max lane
         max_amount = max(lane_sizes) 
         if(max_amount == 0):
@@ -71,9 +72,17 @@ class LogicSimulator:
         wait_size = []
 
         # get total waiting time for each lane
-        for lane in self.lanes:
-            wait_size.append(self.lanes[lane].get_total_wait_time())
-        
+        for lane in self.lanes:        
+            if(self.lanes[lane].peek_straight_right() != -1):
+                wait_size.append(self.time - self.lanes[lane].peek_straight_right())
+            else:
+                wait_size.append(0)
+            if(self.lanes[lane].peek_left() != -1):
+                wait_size.append(self.time - self.lanes[lane].peek_left())            
+            else:
+                wait_size.append(0)
+        #print(wait_size)
+
         # maximum waiting time
         max_wait = max(wait_size)        
         if(max_wait == 0):
@@ -81,10 +90,10 @@ class LogicSimulator:
         
         # calculate relative waiting 
         # time for each lane
-        for i in range(0, 4):            
+        for i in range(0, 8):            
             state.append(float(wait_size[i])/max_wait)
 
-        print(state)
+        print(state)        
         return state
 
     def remove_car(self, direction, lane_type):
@@ -119,35 +128,50 @@ class LogicSimulator:
         self.time += 1
 
         success = False
+        greened_lanes = []
+
         if (action == 0):
             north_success = self.remove_car(Direction.NORTH, 'straight_right')
             south_success = self.remove_car(Direction.SOUTH, 'straight_right')
-            success = north_success or south_success
+            success = north_success or south_success                        
+            greened_lanes.append((Direction.NORTH, 'straight_right'))
+            greened_lanes.append((Direction.SOUTH, 'straight_right'))
         elif (action == 1):  
             west_success = self.remove_car(Direction.WEST, 'straight_right')
             east_success = self.remove_car(Direction.EAST, 'straight_right')
             success = west_success or east_success
+            greened_lanes.append((Direction.WEST, 'straight_right'))
+            greened_lanes.append((Direction.EAST, 'straight_right'))
         elif (action == 2):
             left_success = self.remove_car(Direction.NORTH, 'left')
             straight_success = self.remove_car(Direction.NORTH, 'straight_right')
             success = left_success or straight_success
+            greened_lanes.append((Direction.NORTH, 'straight_right'))
+            greened_lanes.append((Direction.NORTH, 'left'))
         elif (action == 3):
             left_success = self.remove_car(Direction.SOUTH, 'left')
             straight_success = self.remove_car(Direction.SOUTH, 'straight_right')
             success = left_success or straight_success
+            greened_lanes.append((Direction.SOUTH, 'straight_right'))
+            greened_lanes.append((Direction.SOUTH, 'left'))
         elif (action == 4):
             left_success = self.remove_car(Direction.WEST, 'left')
             straight_success = self.remove_car(Direction.WEST, 'straight_right')
             success = left_success or straight_success
+            greened_lanes.append((Direction.WEST, 'straight_right'))
+            greened_lanes.append((Direction.WEST, 'left'))
         elif (action == 5):
             left_success = self.remove_car(Direction.EAST, 'left')
             straight_success = self.remove_car(Direction.EAST, 'straight_right')
             success = left_success or straight_success
+            greened_lanes.append((Direction.EAST, 'straight_right'))
+            greened_lanes.append((Direction.EAST, 'left'))        
 
         # basic reward if green light
         if (success):
-            reward = 1
+            reward = 1        
 
+        # check if simulation done
         done = False if self.get_car_amount() != 0 else True      
         
         return self.get_state(), reward, done
