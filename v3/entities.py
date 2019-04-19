@@ -36,4 +36,4 @@ class Lane:
         return total_wait
 
     def __str__(self):
-        return name + ', car amount: ' + str(self.size()) 
+        return self.name + ', car amount: ' + str(self.size()) 

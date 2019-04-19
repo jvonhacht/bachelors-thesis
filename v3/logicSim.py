@@ -33,12 +33,14 @@ class LogicSimulator:
         }
         
         # fill lanes with cars
+        """
         for i in range(0, 100):  
             direction = self.get_random_direction(Direction.NONE)  
             if(randint(0, 1) == 1):
                 self.lanes[direction].straight_right.append(0)                    
             else:            
-                self.lanes[direction].left.append(0)                                
+                self.lanes[direction].left.append(0)  
+        """                              
                     
     def get_state(self):
         """
@@ -51,50 +53,59 @@ class LogicSimulator:
         """        
         state = []
         lane_sizes = []
+        total_count = 0
 
         # get car amount of lanes
         for lane in self.lanes:
-            lane_sizes.append(self.lanes[lane].size())        
-        #print(lane_sizes)
-
-        # amount of car in max lane
-        max_amount = max(lane_sizes) 
-        if(max_amount == 0):
-            max_amount = 1                        
+            lane_sizes.append(len(self.lanes[lane].left))
+            lane_sizes.append(len(self.lanes[lane].straight_right))  
+            total_count += self.lanes[lane].size()                     
         
+        if (total_count == 0):
+            total_count = 1
+
         # calculate car amount in each lane 
         # relative to maximum lane size
-        for i in range(0, 4):            
-            state.append(float(lane_sizes[i])/max_amount)
+        for lane in lane_sizes:            
+            state.append(float(lane)/total_count)
         
         # list of total waiting 
         # time for each lane
         wait_size = []
+        total_wait = 0
 
         # get total waiting time for each lane
         for lane in self.lanes:        
             if(self.lanes[lane].peek_straight_right() != -1):
                 wait_size.append(self.time - self.lanes[lane].peek_straight_right())
+                total_wait += self.time - self.lanes[lane].peek_straight_right()
             else:
                 wait_size.append(0)
             if(self.lanes[lane].peek_left() != -1):
-                wait_size.append(self.time - self.lanes[lane].peek_left())            
+                wait_size.append(self.time - self.lanes[lane].peek_left())   
+                total_wait += self.time - self.lanes[lane].peek_left()         
             else:
                 wait_size.append(0)
-        #print(wait_size)
-
-        # maximum waiting time
-        max_wait = max(wait_size)        
-        if(max_wait == 0):
-            max_wait = 1
         
+        if (total_wait == 0):
+            total_wait = 1
+
         # calculate relative waiting 
         # time for each lane
-        for i in range(0, 8):            
-            state.append(float(wait_size[i])/max_wait)
-
-        print(state)        
+        for wait_time in wait_size:            
+            state.append(float(wait_time)/total_wait)
+       
         return state
+
+    def reset(self):
+        self.lanes = {
+            Direction.NORTH: Lane('North'),
+            Direction.SOUTH: Lane('South'),
+            Direction.WEST: Lane('West'),
+            Direction.EAST: Lane('East')
+        }
+        self.time = 0
+        return self.get_state()
 
     def remove_car(self, direction, lane_type):
         try:                
@@ -125,10 +136,9 @@ class LogicSimulator:
             if the simulation is finished or not
         """ 
         reward = 0
-        self.time += 1
 
         success = False
-        greened_lanes = []
+        greened_lanes = [(Direction.NONE, ""), (Direction.NONE, "")]
 
         if (action == 0):
             north_success = self.remove_car(Direction.NORTH, 'straight_right')
@@ -169,11 +179,24 @@ class LogicSimulator:
 
         # basic reward if green light
         if (success):
-            reward = 1        
+            reward = 1    
+
+        # negative reward for waiting cars
+        for key in self.lanes:
+            # not Direction.X and not 'left'
+            car_left = self.lanes[key].peek_left()
+            if (not(car_left == -1) and not(key == greened_lanes[0][0] and 'left' == greened_lanes[0][1])):
+                reward -= (self.time - car_left) / 6000
+
+            # not Direction.X and not 'straight'
+            car_straight = self.lanes[key].peek_straight_right()
+            if (not(car_straight == -1) and not(key == greened_lanes[1][0] and 'straight_right' == greened_lanes[1][1])):
+                reward -= (self.time - car_straight) / 6000
 
         # check if simulation done
         done = False if self.get_car_amount() != 0 else True      
         
+        self.time += 1
         return self.get_state(), reward, done
 
 
@@ -199,29 +222,28 @@ class LogicSimulator:
             pass         
         return random.choice(dirs)
 
+    def add_random_car(self):
+        direction = self.get_random_direction(Direction.NONE)
+        if (randint(0,1) == 1):
+            self.lanes[direction].left.append(self.time)
+        else:
+            self.lanes[direction].straight_right.append(self.time)
+
     def get_car_amount(self):
         return self.lanes[Direction.NORTH].size() + \
                self.lanes[Direction.SOUTH].size() + \
                self.lanes[Direction.WEST].size()  + \
-               self.lanes[Direction.EAST].size()
-
-class Car:
-    def __init__(self, destination, destination_from):
-        self.destination = destination
-        self.destination_from = destination_from                
+               self.lanes[Direction.EAST].size()          
 
 if __name__ == "__main__":
     simulator = LogicSimulator()      
-    for i in range(1,5):
-        print(simulator.lanes[i].size())
-    simulator.get_state()
 
     done = False
     while not done:
         done = simulator.step(randint(0,6))[2]              
 
-    for i in range(1,5):
-        print(simulator.lanes[i].size())    
+    for i in range(1,5): 
+        pass
 
     
     
