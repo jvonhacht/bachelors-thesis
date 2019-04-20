@@ -89,9 +89,9 @@ class DQNAgent:
 
 if __name__ == "__main__":
     env = LogicSimulator()
-    agent = DQNAgent(16, 6)
-    #agent.load('save/car-100-dqn.h5')
-    #agent.epsilon = 0.01
+    agent = DQNAgent(8, 6)
+    agent.load('save/car-90-dqn.h5')
+    agent.epsilon = 0.01
     episodes = 100
     batch_size = 192
 
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         for e in range(episodes+1):
             # new episode, fresh simulation
             state = env.reset()
-            state = np.reshape(state, [1, 16])
+            state = np.reshape(state, [1, 8])
             time_step = 0
             max_sim_length = 1500
             actions = {}
@@ -115,7 +115,7 @@ if __name__ == "__main__":
                 action = agent.act(state)
                 actions[action] = actions.get(action, 0) + 1
                 next_state, reward, done = env.step(action)
-                next_state = np.reshape(next_state, [1, 16])
+                next_state = np.reshape(next_state, [1, 8])
 
                 agent.remember(state, action, reward, next_state, done)
                 state = next_state

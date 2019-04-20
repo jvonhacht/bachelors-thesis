@@ -8,11 +8,18 @@ class Direction(Enum):
     WEST = 4
     NONE = 5
 
+class Traffic(Enum):
+    NONE = 0
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+
 class Lane:
     def __init__(self, name):
         self.name = name
         self.left = deque()
-        self.straight_right = deque()                
+        self.straight_right = deque()     
+        self.passed_cars = 0           
 
     def size(self):
         return len(self.left) + len(self.straight_right)
