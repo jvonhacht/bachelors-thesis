@@ -40,7 +40,7 @@ class LogicSimulator:
         self.south_traffic = 0
         self.west_traffic = 0
         self.east_traffic = 0    
-        self.traffic_function = self.fit_curve(plot=True)                        
+        self.traffic_function = self.fit_curve(plot=False)                        
                     
     def get_state(self):
         """
@@ -57,11 +57,11 @@ class LogicSimulator:
             passed_cars = self.lanes[key].passed_cars
             if (passed_cars == 0):
                 pass
-            elif (passed_cars > 0 and passed_cars <= 150):
+            elif (passed_cars > 0 and passed_cars <= 50):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (passed_cars > 150 and passed_cars <= 300):
+            elif (passed_cars > 50 and passed_cars <= 100):
                 state += Traffic.MEDIUM.value * multiplier[index]
-            elif (passed_cars > 300):
+            elif (passed_cars > 100):
                 state += Traffic.HIGH.value * multiplier[index]
         return state
 
@@ -109,7 +109,6 @@ class LogicSimulator:
 
             plt.plot(x,y,'o', x_new, y_new)
             plt.xlim([x[0]-1, x[-1] + 1 ])
-            print(f(0))
             plt.show()
         return f
 
@@ -133,7 +132,7 @@ class LogicSimulator:
             element[1] = element[1]/max
         return tuple_list
 
-    def stochastic_add(self, direction, hour):
+    def stochastic_add(self, direction):
         """
         Add car to a random lane following traffic probability function.
         Parameters
@@ -142,8 +141,7 @@ class LogicSimulator:
             hour of day
         """
         r_number = random.uniform(0, 1)
-        print(self.traffic_function(hour))
-        if (r_number <= self.traffic_function(hour)): 
+        if (r_number <= self.traffic_function(self.time/self.time_steps_per_hour)): 
             self.lanes[direction].passed_cars += 1
             if(randint(0,1) == 0):
                 self.lanes[direction].straight_right.append(self.time)
@@ -151,14 +149,15 @@ class LogicSimulator:
                 self.lanes[direction].left.append(self.time)
 
     def remove_car(self, direction, lane_type):
+        car = -1
         try:                
             if (lane_type == 'left'):
-                self.lanes[direction].left.popleft() 
+                car = self.lanes[direction].left.popleft() 
             elif (lane_type == 'straight_right'):
-                self.lanes[direction].straight_right.popleft() 
+                car = self.lanes[direction].straight_right.popleft() 
         except:
-            return False
-        return True
+            return car
+        return self.time - car
 
     def step(self, action):
         """
@@ -182,12 +181,15 @@ class LogicSimulator:
 
         for _ in range(0, 1501):
             if (self.time % 10 == 0):
-                self.stochastic_add(Direction.NORTH, self.time)
-                self.stochastic_add(Direction.SOUTH, self.time)
-                self.stochastic_add(Direction.EAST, self.time)
-                self.stochastic_add(Direction.WEST, self.time)
+                self.stochastic_add(Direction.NORTH)
+                self.stochastic_add(Direction.SOUTH)
+                self.stochastic_add(Direction.EAST)
+                self.stochastic_add(Direction.WEST)
             reward += self.schedulers[0].schedule() 
+            #print('logi sim reward: {0}'.format(reward))
             self.time += 1   
+
+        #print(self.lanes[Direction.NORTH].passed_cars)
 
         print('n: {0}, s: {1}, e: {2}, w: {3}'.format(self.lanes[Direction.NORTH].size(),
             self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
