@@ -55,11 +55,11 @@ class LogicSimulator:
         multiplier = [1, 4, 16, 64]
         for index, key in enumerate(self.lanes):
             passed_cars = self.lanes[key].passed_cars
-            if (passed_cars == 0):
+            if (passed_cars <= 5):
                 pass
-            elif (passed_cars > 0 and passed_cars <= 50):
+            elif (passed_cars > 5 and passed_cars <= 65):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (passed_cars > 50 and passed_cars <= 100):
+            elif (passed_cars > 65 and passed_cars <= 120):
                 state += Traffic.MEDIUM.value * multiplier[index]
             elif (passed_cars > 100):
                 state += Traffic.HIGH.value * multiplier[index]
@@ -178,16 +178,18 @@ class LogicSimulator:
             if the simulation is finished or not
         """ 
         reward = 0
-
+        cars = 1
         for _ in range(0, 1501):
             if (self.time % 10 == 0):
                 self.stochastic_add(Direction.NORTH)
                 self.stochastic_add(Direction.SOUTH)
                 self.stochastic_add(Direction.EAST)
                 self.stochastic_add(Direction.WEST)
-            reward += self.schedulers[0].schedule() 
-            #print('logi sim reward: {0}'.format(reward))
+            reward += self.schedulers[action].schedule() 
+            if (reward != 0):
+                cars += 1
             self.time += 1   
+        reward /= cars if cars > 0 else reward
 
         #print(self.lanes[Direction.NORTH].passed_cars)
 

@@ -5,7 +5,7 @@ class PrioWEScheduler:
         self.simulator = simulator
 
     def schedule(self):
-        return 1000
+        return 1
 
     def __str__(self):
         return 'Prioritise WEST/EAST scheduler'
