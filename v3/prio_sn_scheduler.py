@@ -15,18 +15,17 @@ class PrioSNScheduler:
             # north lane            
             success = self.simulator.remove_car(Direction.NORTH, 'left')                
             if (success != -1):
-                reward += success                    
+                reward -= success**2                     
             success = self.simulator.remove_car(Direction.NORTH, 'straight_left')                
             if (success != -1):                    
-                reward += success                                
-            return reward       
+                reward -= success**2                                         
             # south lane        
             success = self.simulator.remove_car(Direction.SOUTH, 'left')                
             if (success != -1):
-                reward += success                    
+                reward -= success**2                 
             success = self.simulator.remove_car(Direction.SOUTH, 'straight_left')                
             if (success != -1):
-                reward += success                
+                reward -= success**2             
             return reward     
          
         lane = random.randint(0,1)
@@ -34,19 +33,19 @@ class PrioSNScheduler:
         if(lane == 0):
             success = self.simulator.remove_car(Direction.WEST, 'left')                
             if (success != -1):
-                reward += success                    
+                reward -= success**2                 
             success = self.simulator.remove_car(Direction.WEST, 'straight_left')                
             if (success != -1):
-                reward += success                
+                reward -= success**2                
             return reward      
         # east lane
         else:
             success = self.simulator.remove_car(Direction.EAST, 'left')                
             if (success != -1):
-                reward += success                    
+                reward -= success**2                 
             success = self.simulator.remove_car(Direction.EAST, 'straight_left')                
             if (success != -1):
-                reward += success                
+                reward -= success**2             
             return reward           
     
     def __str__(self):
