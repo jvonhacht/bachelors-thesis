@@ -12,24 +12,22 @@ class PrioSNScheduler:
 
         # choose either north or south lane
         if (random.uniform(0,1) <= prio_prob):                
-            # north lane
-            if(random.randint(0,1) == 1):                
-                success = self.simulator.remove_car(Direction.NORTH, 'left')                
-                if (success != -1):
-                    reward += success                    
-                success = self.simulator.remove_car(Direction.NORTH, 'straight_left')                
-                if (success != -1):                    
-                    reward += success                                
-                return reward       
-            # south lane
-            else:
-                success = self.simulator.remove_car(Direction.SOUTH, 'left')                
-                if (success != -1):
-                    reward += success                    
-                success = self.simulator.remove_car(Direction.SOUTH, 'straight_left')                
-                if (success != -1):
-                    reward += success                
-                return reward     
+            # north lane            
+            success = self.simulator.remove_car(Direction.NORTH, 'left')                
+            if (success != -1):
+                reward += success                    
+            success = self.simulator.remove_car(Direction.NORTH, 'straight_left')                
+            if (success != -1):                    
+                reward += success                                
+            return reward       
+            # south lane        
+            success = self.simulator.remove_car(Direction.SOUTH, 'left')                
+            if (success != -1):
+                reward += success                    
+            success = self.simulator.remove_car(Direction.SOUTH, 'straight_left')                
+            if (success != -1):
+                reward += success                
+            return reward     
          
         lane = random.randint(0,1)
         # west lane
