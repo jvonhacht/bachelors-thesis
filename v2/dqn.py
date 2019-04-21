@@ -6,6 +6,7 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 from keras.models import load_model
+from keras.callbacks import TensorBoard
 
 
 # UN COMMENT FOR TRAINING
@@ -26,6 +27,10 @@ class DQNAgent:
         self.epsilon_decay = 0.9995
         self.learning_rate = 0.001
         self.model = self._build_model()
+        self.callback = TensorBoard(log_dir='./Graph', histogram_freq=0, 
+            batch_size=192, write_graph=True, write_grads=False, write_images=False,
+            embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None, 
+            embeddings_data=None, update_freq='epoch')
 
         self.target_model = self._build_model()
 
@@ -57,7 +62,7 @@ class DQNAgent:
             target_f = self.model.predict(state)
             target_f[0][action] = target
 
-            self.model.fit(state, target_f, epochs=1, verbose=0)
+            self.model.fit(state, target_f, epochs=1, verbose=0) #callbacks=[self.callback]
 
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
