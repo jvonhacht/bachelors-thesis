@@ -191,12 +191,12 @@ class LogicSimulator:
 
         #print(self.lanes[Direction.NORTH].passed_cars)
 
-        print('n: {0}, s: {1}, e: {2}, w: {3}'.format(self.lanes[Direction.NORTH].size(),
-            self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
-            self.lanes[Direction.WEST].size()))                   
+        #print('n: {0}, s: {1}, e: {2}, w: {3}'.format(self.lanes[Direction.NORTH].size(),
+        #    self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
+        #    self.lanes[Direction.WEST].size()))                   
         
         state = self.get_state()
-        print('state: {0} time: {1}'.format(state, self.time/self.time_steps_per_hour))
+        #print('state: {0} time: {1}'.format(state, self.time/self.time_steps_per_hour))
         self.lanes[Direction.NORTH].passed_cars = 0
         self.lanes[Direction.SOUTH].passed_cars = 0
         self.lanes[Direction.EAST].passed_cars = 0

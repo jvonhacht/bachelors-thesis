@@ -5,6 +5,7 @@ class FifoScheduler:
         self.simulator = simulator
 
     def schedule(self):
+        """
         self.simulator.remove_car(Direction.NORTH, 'left')
         highest_key = Direction.NONE
         highest_waiting_time = 0
@@ -30,6 +31,8 @@ class FifoScheduler:
         success = self.simulator.remove_car(highest_key, 'straight_right')
         if (success != -1):
             reward -= success**2
+        """
+        reward = -1000
         return reward
 
     def __str__(self):
