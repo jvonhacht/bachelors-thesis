@@ -3,7 +3,7 @@ import numpy as np
 #import matplotlib
 from matplotlib import pyplot as plt
 import random
-import copy
+import time
 from random import randint
 
 #from graphics import *
@@ -13,8 +13,11 @@ from entities import Traffic
 from entities import Lane
 
 from fifo_scheduler import FifoScheduler
+from fixed_time_scheduler import FixedTimeScheduler
+from lqf_scheduler import LQFScheduler
 #from dqn_scheduler import DQNScheduler
 #from random_scheduler import RandomScheduler
+#from qtable import QTable
 
 class LogicSimulator:
 
@@ -40,7 +43,23 @@ class LogicSimulator:
         self.south_traffic = 0
         self.west_traffic = 0
         self.east_traffic = 0    
-        self.traffic_function = self.fit_curve(plot=False)                        
+        self.traffic_function = self.fit_curve(plot=False)     
+
+        # controlling schedule delays
+        self.time_between_cars = 5
+        self.time_between_lane_switch = 35
+        self.lane_switch_counter = 0   
+
+        # stats   
+        self.removed_cars = 0
+        self.summed_waiting_time = 0
+
+        self.x = [] 
+        self.ny = []   
+        self.wy = []
+        self.ey = []
+        self.sy = []
+        #self.action = []                    
                     
     def get_state(self):
         """
@@ -57,11 +76,11 @@ class LogicSimulator:
             passed_cars = self.lanes[key].passed_cars
             if (passed_cars <= 5):
                 pass
-            elif (passed_cars > 5 and passed_cars <= 65):
+            elif (passed_cars > 5 and passed_cars <= 15):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (passed_cars > 65 and passed_cars <= 120):
+            elif (passed_cars > 15 and passed_cars <= 30):
                 state += Traffic.MEDIUM.value * multiplier[index]
-            elif (passed_cars > 100):
+            elif (passed_cars > 30):
                 state += Traffic.HIGH.value * multiplier[index]
         return state
 
@@ -72,7 +91,9 @@ class LogicSimulator:
             Direction.WEST: Lane('West'),
             Direction.EAST: Lane('East')
         }
+        self.removed_cars = 0
         self.time = 0
+        self.summed_waiting_time = 0
         return self.get_state()
 
     def fit_curve(self, plot=False):
@@ -149,6 +170,8 @@ class LogicSimulator:
                 self.lanes[direction].left.append(self.time)
 
     def remove_car(self, direction, lane_type):
+        #print('dir: {0} lane> {1}'.format(direction, lane_type))
+        self.removed_cars += 1
         car = -1
         try:                
             if (lane_type == 'left'):
@@ -157,6 +180,7 @@ class LogicSimulator:
                 car = self.lanes[direction].straight_right.popleft() 
         except:
             return car
+        self.summed_waiting_time += self.time - car
         return self.time - car
 
     def step(self, action):
@@ -178,18 +202,46 @@ class LogicSimulator:
             if the simulation is finished or not
         """ 
         reward = 0
-        cars = 1
-        for _ in range(0, 1501):
-            if (self.time % 10 == 0):
+        cars = 0  
+        switch = False    
+        for _ in range(0, 1500):
+            if (self.time % 50 == 0):
                 self.stochastic_add(Direction.NORTH)
                 self.stochastic_add(Direction.SOUTH)
                 self.stochastic_add(Direction.EAST)
                 self.stochastic_add(Direction.WEST)
-            reward += self.schedulers[action].schedule() 
-            if (reward != 0):
-                cars += 1
+                
+            #print(self.time % self.time_between_cars == 0)
+            #print(self.lane_switch_counter)
+            if (self.time % self.time_between_cars == 0 and self.lane_switch_counter == 0):
+                #print('SHCDULE')
+                scheduler_reward, switch, greened_cars = self.schedulers[action].schedule() 
+                reward += scheduler_reward
+                cars += greened_cars
+                if (switch):
+                    self.lane_switch_counter = self.time_between_lane_switch
+                    switch = False
+            
+            self.x.append(self.time/self.time_steps_per_hour)
+            self.ny.append(self.lanes[Direction.NORTH].size())
+            self.sy.append(self.lanes[Direction.SOUTH].size())
+            self.wy.append(self.lanes[Direction.WEST].size())
+            self.ey.append(self.lanes[Direction.EAST].size())
+
+            #print('-------')
+
+            # lane switch delay
+            if(self.lane_switch_counter > 0 and not(switch)):
+                self.lane_switch_counter -= 1
+            #print('swatch {0}'.format(switch))
+            
+            #time.sleep(0.1)
+            #print('n: {0}, s: {1}, e: {2}, w: {3}'.format(self.lanes[Direction.NORTH].size(),
+            #    self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
+            #    self.lanes[Direction.WEST].size()))
             self.time += 1   
-        reward /= cars if cars > 0 else reward
+        if (cars > 0):
+            reward /= cars
 
         #print(self.lanes[Direction.NORTH].passed_cars)
 
@@ -240,17 +292,50 @@ class LogicSimulator:
         return self.lanes[Direction.NORTH].size() + \
                self.lanes[Direction.SOUTH].size() + \
                self.lanes[Direction.WEST].size()  + \
-               self.lanes[Direction.EAST].size()          
+               self.lanes[Direction.EAST].size()       
+
+    def save_stats(self):
+        pass
 
 if __name__ == "__main__":
-    simulator = LogicSimulator([FifoScheduler()])      
-
-    done = False
+    simulator = LogicSimulator()
+    simulator.schedulers = [
+        FifoScheduler(simulator),
+        LQFScheduler(simulator),
+        FixedTimeScheduler(simulator, 300),
+        FixedTimeScheduler(simulator, 200),
+        FixedTimeScheduler(simulator, 400),
+        #PrioWEScheduler(env)
+    ]
+    agent = QTable(256, len(simulator.schedulers), simulator.schedulers)
+    agent.load_table()
+    done = False     
+    hour = 1
+    state = simulator.get_state()
     while not done:
-        done = simulator.step(randint(0,6))[2]              
+        #state, _, done = simulator.step(agent.act(state, greedy=False))
+        _, _, done = simulator.step(1)
+        if (simulator.time % simulator.time_steps_per_hour == 0):
+            print('Simulating hour: {0}'.format(hour))
+            simulator.save_stats()
+            hour += 1
+    plt.subplot(4,1,1)
+    plt.plot(simulator.x, simulator.ny, 'b',label='NORTH')
+    plt.legend(loc='upper left')
+    plt.subplot(4,1,2)
+    plt.plot(simulator.x, simulator.sy, 'b',label='SOUTH')
+    plt.legend(loc='upper left')
+    plt.subplot(4,1,3)
+    plt.plot(simulator.x, simulator.wy, 'b',label='WEST')
+    plt.legend(loc='upper left')
+    plt.subplot(4,1,4)
+    plt.plot(simulator.x, simulator.ey, 'b',label='EAST')
+    plt.legend(loc='upper left')
+    plt.show()
 
-    for i in range(1,5): 
-        pass
+    #done = False
+    #while not done:
+        #done = simulator.step(randint(0,6))[2]              
 
     
     
