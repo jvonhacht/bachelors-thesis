@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import random
 import time
 from random import randint
+import csv
 
 #from graphics import *
 
@@ -24,7 +25,7 @@ class LogicSimulator:
     # PARAMETERS
     time_steps_per_hour = 18000                    
 
-    def __init__(self, schedulers=[]):       
+    def __init__(self, waiting_time_file=None, schedulers=[]):       
         # init simulation counter
         self.time = 0
 
@@ -59,6 +60,12 @@ class LogicSimulator:
         self.wy = []
         self.ey = []
         self.sy = []
+        
+        self.waiting_data_cars = 0
+        self.waiting_data_summed = 0
+        self.waiting_data = []
+        self.waiting_data_x = []
+        self.waiting_time_file = waiting_time_file
         #self.action = []                    
                     
     def get_state(self):
@@ -172,6 +179,7 @@ class LogicSimulator:
     def remove_car(self, direction, lane_type):
         #print('dir: {0} lane> {1}'.format(direction, lane_type))
         self.removed_cars += 1
+        self.waiting_data_cars += 1
         car = -1
         try:                
             if (lane_type == 'left'):
@@ -181,6 +189,7 @@ class LogicSimulator:
         except:
             return car
         self.summed_waiting_time += self.time - car
+        self.waiting_data_summed += self.time - car
         return self.time - car
 
     def step(self, action):
@@ -243,6 +252,13 @@ class LogicSimulator:
         if (cars > 0):
             reward /= cars
 
+        self.waiting_data.append(self.waiting_data_summed/self.time_steps_per_hour/self.waiting_data_cars*60*60)
+        self.waiting_data_x.append(self.time/self.time_steps_per_hour)
+        if (self.waiting_time_file != None):
+            self.waiting_time_file.writerow([self.time/self.time_steps_per_hour, self.waiting_data_summed/self.time_steps_per_hour/self.waiting_data_cars*60*60])
+        self.waiting_data_summed = 0
+        self.waiting_data_cars = 0
+
         #print(self.lanes[Direction.NORTH].passed_cars)
 
         #print('n: {0}, s: {1}, e: {2}, w: {3}'.format(self.lanes[Direction.NORTH].size(),
@@ -298,44 +314,48 @@ class LogicSimulator:
         pass
 
 if __name__ == "__main__":
-    simulator = LogicSimulator()
-    simulator.schedulers = [
-        FifoScheduler(simulator),
-        LQFScheduler(simulator),
-        FixedTimeScheduler(simulator, 300),
-        FixedTimeScheduler(simulator, 200),
-        FixedTimeScheduler(simulator, 400),
-        #PrioWEScheduler(env)
-    ]
-    agent = QTable(256, len(simulator.schedulers), simulator.schedulers)
-    agent.load_table()
-    done = False     
-    hour = 1
-    state = simulator.get_state()
-    while not done:
-        #state, _, done = simulator.step(agent.act(state, greedy=False))
-        _, _, done = simulator.step(1)
-        if (simulator.time % simulator.time_steps_per_hour == 0):
-            print('Simulating hour: {0}'.format(hour))
-            simulator.save_stats()
-            hour += 1
-    plt.subplot(4,1,1)
-    plt.plot(simulator.x, simulator.ny, 'b',label='NORTH')
-    plt.legend(loc='upper left')
-    plt.subplot(4,1,2)
-    plt.plot(simulator.x, simulator.sy, 'b',label='SOUTH')
-    plt.legend(loc='upper left')
-    plt.subplot(4,1,3)
-    plt.plot(simulator.x, simulator.wy, 'b',label='WEST')
-    plt.legend(loc='upper left')
-    plt.subplot(4,1,4)
-    plt.plot(simulator.x, simulator.ey, 'b',label='EAST')
-    plt.legend(loc='upper left')
-    plt.show()
+    scheduler = 5
+    with open('waiting_time_{0}.csv'.format(scheduler), mode='w') as waiting_time_file:
+        waiting_time_file = csv.writer(waiting_time_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-    #done = False
-    #while not done:
-        #done = simulator.step(randint(0,6))[2]              
+        simulator = LogicSimulator(waiting_time_file)
+        simulator.schedulers = [
+            FifoScheduler(simulator),
+            LQFScheduler(simulator),
+            FixedTimeScheduler(simulator, 300),
+            FixedTimeScheduler(simulator, 200),
+            FixedTimeScheduler(simulator, 400),
+            #PrioWEScheduler(env)
+        ]
+        agent = QTable(256, len(simulator.schedulers), simulator.schedulers)
+        agent.load_table()
+        done = False     
+        hour = 1
+        state = simulator.get_state()
+        while not done:
+            state, _, done = simulator.step(agent.act(state, greedy=False))
+            #_, _, done = simulator.step(scheduler)
+            if (simulator.time % simulator.time_steps_per_hour == 0):
+                print('Simulating hour: {0}'.format(hour))
+                simulator.save_stats()
+                hour += 1
+        """
+        plt.subplot(4,1,1)
+        plt.plot(simulator.x, simulator.ny, 'b',label='NORTH')
+        plt.legend(loc='upper left')
+        plt.subplot(4,1,2)
+        plt.plot(simulator.x, simulator.sy, 'b',label='SOUTH')
+        plt.legend(loc='upper left')
+        plt.subplot(4,1,3)
+        plt.plot(simulator.x, simulator.wy, 'b',label='WEST')
+        plt.legend(loc='upper left')
+        plt.subplot(4,1,4)
+        plt.plot(simulator.x, simulator.ey, 'b',label='EAST')
+        plt.legend(loc='upper left')
+        """
+        plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'b', label='5min avg waiting time')
+        plt.legend(loc='upper left')
+        plt.show()         
 
     
     

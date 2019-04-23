@@ -1,4 +1,5 @@
 from logicSim import LogicSimulator
+
 from fifo_scheduler import FifoScheduler
 from lqf_scheduler import LQFScheduler
 from prio_sn_scheduler import PrioSNScheduler
@@ -15,18 +16,24 @@ class QTable:
         self.episodes = 1000
         self.epsilon = 1
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.9995
+        self.epsilon_decay = 0.99995
         self.alpha = 0.1
         self.gamma = 0.9
         self.action_space = action_space
 
         self.table = np.zeros((height, width))
+        self.table_b = np.zeros((height, width))
 
     def save_table(self):
-        np.savetxt('table.txt', self.table, fmt='%d')
+        np.savetxt('table_a.txt', self.table, fmt='%d')
+        np.savetxt('table_b.txt', self.table_b, fmt='%d')
 
     def load_table(self):
-        self.table = np.loadtxt('table.txt', dtype=int)
+        try:
+            self.table = np.loadtxt('table_a.txt', dtype=int)
+            self.table_b = np.loadtxt('table_b.txt', dtype=int)
+        except OSError:
+            pass
 
     def act(self, state, greedy=True):
         # epsilon greedy
@@ -51,7 +58,7 @@ if __name__ == "__main__":
         with open('waiting_times.csv', mode='w') as waiting_times:
             action_stats = csv.writer(action_stats, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             waiting_times = csv.writer(waiting_times, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            for e in range(0, qtable.episodes):
+            for e in range(0, qtable.episodes+1):
                 state = env.reset()
                 actions_taken = {}
                 for i in range(0, len(env.schedulers)):
@@ -66,16 +73,26 @@ if __name__ == "__main__":
                     #print('action: {0} reward: {1}'.format(action, reward))
                     # stats
                     actions_taken[action] += 1
+                    if (random.randint(0,1) == 0):
+                        old_value = qtable.table[state, action]
+                        next_max = np.argmax(qtable.table[next_state])
+                        #print(state)
 
-                    old_value = qtable.table[state, action]
-                    next_max = np.max(qtable.table[next_state])
-                    #print(state)
+                        # Update the new value
+                        new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
+                            (reward + qtable.gamma * qtable.table_b[next_state, next_max] - old_value)
+                        #print('state: {0} action: {1}'.format(state, action))
+                        qtable.table[state, action] = new_value
+                    else:
+                        old_value = qtable.table_b[state, action]
+                        next_max = np.argmax(qtable.table_b[next_state])
+                        #print(state)
 
-                    # Update the new value
-                    new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
-                        (reward + qtable.gamma * next_max)
-                    #print('state: {0} action: {1}'.format(state, action))
-                    qtable.table[state, action] = new_value
+                        # Update the new value
+                        new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
+                            (reward + qtable.gamma * qtable.table[next_state, next_max] - old_value)
+                        #print('state: {0} action: {1}'.format(state, action))
+                        qtable.table_b[state, action] = new_value
                     state = next_state
 
                     if (qtable.epsilon > qtable.epsilon_min):
