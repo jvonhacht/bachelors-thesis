@@ -1,4 +1,4 @@
-from logicSim import LogicSimulator
+#from logicSim import LogicSimulator
 
 from fifo_scheduler import FifoScheduler
 from lqf_scheduler import LQFScheduler
@@ -10,14 +10,15 @@ import numpy as np
 import random
 import time
 import csv
+from entities import Direction
 
 class QTable:
     def __init__(self, height, width, action_space):
         self.episodes = 1000
         self.epsilon = 1
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.99995
-        self.alpha = 0.1
+        self.epsilon_decay = 0.9995
+        self.alpha = 0.05
         self.gamma = 0.9
         self.action_space = action_space
 
@@ -48,8 +49,8 @@ if __name__ == "__main__":
         FifoScheduler(env),
         LQFScheduler(env),
         FixedTimeScheduler(env, 300),
-        FixedTimeScheduler(env, 200),
-        FixedTimeScheduler(env, 400),
+        FixedTimeScheduler(env, 100),
+        FixedTimeScheduler(env, 500),
         #PrioWEScheduler(env)
     ]
     qtable = QTable(256, len(env.schedulers), env.schedulers)
@@ -58,6 +59,7 @@ if __name__ == "__main__":
         with open('waiting_times.csv', mode='w') as waiting_times:
             action_stats = csv.writer(action_stats, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             waiting_times = csv.writer(waiting_times, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            previous_states = {}
             for e in range(0, qtable.episodes+1):
                 state = env.reset()
                 actions_taken = {}
@@ -72,6 +74,7 @@ if __name__ == "__main__":
                     #print('state: {0}, next: {1} time: {2}'.format(state, next_state, env.time/env.time_steps_per_hour))
                     #print('action: {0} reward: {1}'.format(action, reward))
                     # stats
+                    previous_states[state] = previous_states.get(state, 0) + 1
                     actions_taken[action] += 1
                     if (random.randint(0,1) == 0):
                         old_value = qtable.table[state, action]
@@ -94,11 +97,14 @@ if __name__ == "__main__":
                         #print('state: {0} action: {1}'.format(state, action))
                         qtable.table_b[state, action] = new_value
                     state = next_state
+                    #env.reset_queues()
 
                     if (qtable.epsilon > qtable.epsilon_min):
                         qtable.epsilon *= qtable.epsilon_decay
                 qtable.save_table()
                 print('Episode {0}/{1} epsilon: {2}'.format(e, qtable.episodes, qtable.epsilon))
+                #print(len(previous_states.keys()))
+                #print(previous_states[255])
                 #print(table)
                 tot = sum(actions_taken.values())
                 csv_data = []

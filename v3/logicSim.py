@@ -18,14 +18,14 @@ from fixed_time_scheduler import FixedTimeScheduler
 from lqf_scheduler import LQFScheduler
 #from dqn_scheduler import DQNScheduler
 #from random_scheduler import RandomScheduler
-#from qtable import QTable
+from qtable import QTable
 
 class LogicSimulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000                    
 
-    def __init__(self, waiting_time_file=None, schedulers=[]):       
+    def __init__(self, waiting_time_file=None, schedulers=[], action_file=None):       
         # init simulation counter
         self.time = 0
 
@@ -47,8 +47,8 @@ class LogicSimulator:
         self.traffic_function = self.fit_curve(plot=False)     
 
         # controlling schedule delays
-        self.time_between_cars = 5
-        self.time_between_lane_switch = 35
+        self.time_between_cars = 4
+        self.time_between_lane_switch = 30
         self.lane_switch_counter = 0   
 
         # stats   
@@ -66,6 +66,7 @@ class LogicSimulator:
         self.waiting_data = []
         self.waiting_data_x = []
         self.waiting_time_file = waiting_time_file
+        self.action_file = action_file
         #self.action = []                    
                     
     def get_state(self):
@@ -83,11 +84,11 @@ class LogicSimulator:
             passed_cars = self.lanes[key].passed_cars
             if (passed_cars <= 5):
                 pass
-            elif (passed_cars > 5 and passed_cars <= 15):
+            elif (passed_cars > 5 and passed_cars <= 12):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (passed_cars > 15 and passed_cars <= 30):
+            elif (passed_cars > 12 and passed_cars <= 24):
                 state += Traffic.MEDIUM.value * multiplier[index]
-            elif (passed_cars > 30):
+            elif (passed_cars > 24):
                 state += Traffic.HIGH.value * multiplier[index]
         return state
 
@@ -102,6 +103,11 @@ class LogicSimulator:
         self.time = 0
         self.summed_waiting_time = 0
         return self.get_state()
+
+    def reset_queues(self):
+        for key in self.lanes:
+            self.lanes[key].left.clear()
+            self.lanes[key].straight_right.clear()
 
     def fit_curve(self, plot=False):
         """
@@ -212,8 +218,10 @@ class LogicSimulator:
         """ 
         reward = 0
         cars = 0  
-        switch = False    
-        for _ in range(0, 1500):
+        switch = False   
+        self.action_file.writerow([self.time/self.time_steps_per_hour, action]) 
+
+        for _ in range(0, 600):
             if (self.time % 50 == 0):
                 self.stochastic_add(Direction.NORTH)
                 self.stochastic_add(Direction.SOUTH)
@@ -249,6 +257,21 @@ class LogicSimulator:
             #    self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
             #    self.lanes[Direction.WEST].size()))
             self.time += 1   
+        """
+        left_waiting_time = 0
+        left_cars = 0
+        for key in self.lanes:
+            for car in self.lanes[key].straight_right:
+                left_waiting_time -= 2*(self.time - car)**2
+                left_cars += 1
+            for car in self.lanes[key].left:
+                left_waiting_time -= 2*(self.time - car)**2
+                left_cars += 1
+
+        reward += left_waiting_time
+        cars += left_cars
+        """
+
         if (cars > 0):
             reward /= cars
 
@@ -315,10 +338,12 @@ class LogicSimulator:
 
 if __name__ == "__main__":
     scheduler = 5
-    with open('waiting_time_{0}.csv'.format(scheduler), mode='w') as waiting_time_file:
+    with open('waiting_time_{0}.csv'.format(scheduler), mode='w') as waiting_time_file, \
+        open('action_selection.csv', mode='w') as action_selection:
         waiting_time_file = csv.writer(waiting_time_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        action_selection = csv.writer(action_selection, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-        simulator = LogicSimulator(waiting_time_file)
+        simulator = LogicSimulator(waiting_time_file=waiting_time_file, action_file=action_selection)
         simulator.schedulers = [
             FifoScheduler(simulator),
             LQFScheduler(simulator),
