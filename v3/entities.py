@@ -13,6 +13,7 @@ class Traffic(Enum):
     LOW = 1
     MEDIUM = 2
     HIGH = 3
+    V_HIGH = 4
 
 class Lane:
     def __init__(self, name):
