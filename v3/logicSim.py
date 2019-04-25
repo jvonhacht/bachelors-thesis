@@ -39,7 +39,6 @@ class LogicSimulator:
 
         self.schedulers = schedulers
 
-        self.method_select_delay = 25
         self.north_traffic = 0
         self.south_traffic = 0
         self.west_traffic = 0
@@ -47,8 +46,8 @@ class LogicSimulator:
         self.traffic_function = self.fit_curve(plot=False)     
 
         # controlling schedule delays
-        self.time_between_cars = 4
-        self.time_between_lane_switch = 30
+        self.time_between_cars = 10
+        self.time_between_lane_switch = 45
         self.lane_switch_counter = 0   
 
         # stats   
@@ -79,17 +78,19 @@ class LogicSimulator:
             state of the simulation
         """        
         state = 0
-        multiplier = [1, 4, 16, 64]
+        multiplier = [1, 5, 25, 125]
         for index, key in enumerate(self.lanes):
-            passed_cars = self.lanes[key].passed_cars
-            if (passed_cars <= 5):
+            number_of_cars = self.lanes[key].size()
+            if (number_of_cars == 0):
                 pass
-            elif (passed_cars > 5 and passed_cars <= 12):
+            elif (number_of_cars > 0 and number_of_cars <= 5):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (passed_cars > 12 and passed_cars <= 24):
+            elif (number_of_cars > 5 and number_of_cars <= 12):
                 state += Traffic.MEDIUM.value * multiplier[index]
-            elif (passed_cars > 24):
+            elif (number_of_cars > 12 and number_of_cars <= 20):
                 state += Traffic.HIGH.value * multiplier[index]
+            elif (number_of_cars > 20):
+                state += Traffic.V_HIGH.value * multiplier[index]
         return state
 
     def reset(self):
@@ -195,7 +196,7 @@ class LogicSimulator:
         except:
             return car
         self.summed_waiting_time += self.time - car
-        self.waiting_data_summed += self.time - car
+        self.waiting_data_summed += (self.time - car)
         return self.time - car
 
     def step(self, action):
@@ -218,11 +219,12 @@ class LogicSimulator:
         """ 
         reward = 0
         cars = 0  
-        switch = False   
-        self.action_file.writerow([self.time/self.time_steps_per_hour, action]) 
+        switch = False  
+        if (self.action_file != None): 
+            self.action_file.writerow([self.time/self.time_steps_per_hour, action]) 
 
         for _ in range(0, 600):
-            if (self.time % 50 == 0):
+            if (self.time % 100 == 0):
                 self.stochastic_add(Direction.NORTH)
                 self.stochastic_add(Direction.SOUTH)
                 self.stochastic_add(Direction.EAST)
@@ -378,7 +380,7 @@ if __name__ == "__main__":
         plt.plot(simulator.x, simulator.ey, 'b',label='EAST')
         plt.legend(loc='upper left')
         """
-        plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'b', label='5min avg waiting time')
+        plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'o', label='5min avg waiting time', markersize=1)
         plt.legend(loc='upper left')
         plt.show()         
 

@@ -16,10 +16,10 @@ class QTable:
     def __init__(self, height, width, action_space):
         self.episodes = 1000
         self.epsilon = 1
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.9995
-        self.alpha = 0.05
-        self.gamma = 0.9
+        self.epsilon_min = 0.05
+        self.epsilon_decay = 0.99995
+        self.alpha = 0.2
+        self.gamma = 0.85
         self.action_space = action_space
 
         self.table = np.zeros((height, width))
@@ -38,8 +38,11 @@ class QTable:
 
     def act(self, state, greedy=True):
         # epsilon greedy
-        if (random.uniform(0, 1) < self.epsilon):
-            return random.randint(0,len(self.action_space)-1)
+        if (greedy):
+            if (random.uniform(0, 1) < self.epsilon):
+                return random.randint(0,len(self.action_space)-1)
+            else:
+                return np.argmax(self.table[state])
         else:
             return np.argmax(self.table[state])
 
@@ -49,11 +52,10 @@ if __name__ == "__main__":
         FifoScheduler(env),
         LQFScheduler(env),
         FixedTimeScheduler(env, 300),
-        FixedTimeScheduler(env, 100),
-        FixedTimeScheduler(env, 500),
-        #PrioWEScheduler(env)
+        FixedTimeScheduler(env, 150),
+        FixedTimeScheduler(env, 450),
     ]
-    qtable = QTable(256, len(env.schedulers), env.schedulers)
+    qtable = QTable(625, len(env.schedulers), env.schedulers)
 
     with open('action_stats.csv', mode='w') as action_stats:
         with open('waiting_times.csv', mode='w') as waiting_times:
@@ -66,9 +68,9 @@ if __name__ == "__main__":
                 for i in range(0, len(env.schedulers)):
                     actions_taken[i] = 0
                 done = False
-                #print(actions_taken)
 
                 while not done:
+                    #print(state)
                     action = qtable.act(state)
                     next_state, reward, done = env.step(action)
                     #print('state: {0}, next: {1} time: {2}'.format(state, next_state, env.time/env.time_steps_per_hour))
@@ -103,7 +105,7 @@ if __name__ == "__main__":
                         qtable.epsilon *= qtable.epsilon_decay
                 qtable.save_table()
                 print('Episode {0}/{1} epsilon: {2}'.format(e, qtable.episodes, qtable.epsilon))
-                #print(len(previous_states.keys()))
+                #print(sorted(previous_states))
                 #print(previous_states[255])
                 #print(table)
                 tot = sum(actions_taken.values())
