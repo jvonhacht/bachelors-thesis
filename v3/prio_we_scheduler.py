@@ -6,13 +6,9 @@ class PrioWEScheduler:
         self.simulator = simulator
 
     def schedule(self):
-<<<<<<< HEAD
-        return 1
-=======
         # TODO change rewards
         prio_prob = 1.0        
-        reward = 0        
->>>>>>> 62d28221ab027038634b753904b525115b00b20e
+        reward = 0                                            
 
         # choose either west or east lane
         if (random.uniform(0,1) <= prio_prob):                
@@ -20,14 +16,14 @@ class PrioWEScheduler:
             success = self.simulator.remove_car(Direction.WEST, 'left')                
             if (success != -1):
                 reward -= success**2                 
-            success = self.simulator.remove_car(Direction.WEST, 'straight_left')                
+            success = self.simulator.remove_car(Direction.WEST, 'straight_right')                
             if (success != -1):                    
                 reward -= success**2                              
             # east lane            
             success = self.simulator.remove_car(Direction.EAST, 'left')                
             if (success != -1):
                 reward -= success**2                 
-            success = self.simulator.remove_car(Direction.EAST, 'straight_left')                
+            success = self.simulator.remove_car(Direction.EAST, 'straight_right')                
             if (success != -1):
                 reward -= success**2             
             return reward     
@@ -38,7 +34,7 @@ class PrioWEScheduler:
             success = self.simulator.remove_car(Direction.NORTH, 'left')                
             if (success != -1):
                 reward -= success**2             
-            success = self.simulator.remove_car(Direction.NORTH, 'straight_left')                
+            success = self.simulator.remove_car(Direction.NORTH, 'straight_right')                
             if (success != -1):
                 reward -= success**2             
             return reward      
@@ -47,10 +43,10 @@ class PrioWEScheduler:
             success = self.simulator.remove_car(Direction.SOUTH, 'left')                
             if (success != -1):
                 reward -= success**2                 
-            success = self.simulator.remove_car(Direction.SOUTH, 'straight_left')                
+            success = self.simulator.remove_car(Direction.SOUTH, 'straight_right')                
             if (success != -1):
                 reward -= success**2             
-            return reward           
+            return reward, False
     
     def __str__(self):
         return 'Prioritise WEST/EAST scheduler'
