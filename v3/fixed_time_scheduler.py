@@ -58,9 +58,8 @@ class FixedTimeScheduler:
                 if (success != -1):
                     cars += 1
                     reward -= success**2                                   
-        self.switch_counter -= self.simulator.time - self.latest_time
-
-        if(self.switch_counter == 0):                
+        self.switch_counter -= (self.simulator.time - self.latest_time)
+        if(self.switch_counter <= 0):                
             self.switch_counter = self.switch_amount                                
             self.switch = True
 

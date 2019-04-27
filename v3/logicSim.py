@@ -260,10 +260,10 @@ class LogicSimulator:
                 self.stochastic_add(Direction.WEST, multiplier=self.we)
 
             if (self.time % self.time_between_cars == 0 and self.lane_switch_counter == 0):
-                print('SHCDULE')
+                #print('SHCDULE')
                 scheduler_reward, switch, greened_cars = self.schedulers[action].schedule() 
                 #print(reward)
-                reward += scheduler_reward/1000
+                reward += scheduler_reward
                 cars += greened_cars
                 if (switch):
                     self.lane_switch_counter = self.time_between_lane_switch
