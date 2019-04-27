@@ -215,7 +215,8 @@ class LogicSimulator:
             return car
         self.summed_waiting_time += self.time - car
         self.waiting_data_summed += ((self.time - car)/self.time_steps_per_hour*60*60**2)
-        #self.waiting_time_file.writerow([self.time/self.time_steps_per_hour, (self.time - car)/self.time_steps_per_hour*60*60**2])
+        if (self.waiting_time_file != None):
+            self.waiting_time_file.writerow([self.time/self.time_steps_per_hour, (self.time - car)/self.time_steps_per_hour*60*60**2])
         self.waiting_blob.append((self.time - car)/self.time_steps_per_hour*60*60)
         #print(self.time - car)
         self.waiting_blob_x.append(self.time/self.time_steps_per_hour)
@@ -254,10 +255,12 @@ class LogicSimulator:
         for _ in range(0, 600):
             if (self.time % 80 == 0):
                 count += 1
-                self.stochastic_add(Direction.NORTH, multiplier=self.ns)
-                self.stochastic_add(Direction.SOUTH, multiplier=self.ns)
-                self.stochastic_add(Direction.EAST, multiplier=self.we)
-                self.stochastic_add(Direction.WEST, multiplier=self.we)
+                for _ in range(0, self.ns):
+                    self.stochastic_add(Direction.NORTH)
+                    self.stochastic_add(Direction.SOUTH)
+                for _ in range(0, self.we):
+                    self.stochastic_add(Direction.EAST)
+                    self.stochastic_add(Direction.WEST)
 
             if (self.time % self.time_between_cars == 0 and self.lane_switch_counter == 0):
                 #print('SHCDULE')
@@ -362,19 +365,19 @@ class LogicSimulator:
         pass
 
 if __name__ == "__main__":
-    scheduler = 1
+    scheduler = 3
     with open('waiting_time_{0}.csv'.format(scheduler), mode='w') as waiting_time_file, \
         open('action_selection.csv', mode='w') as action_selection:
         waiting_time_file = csv.writer(waiting_time_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         action_selection = csv.writer(action_selection, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-        simulator = LogicSimulator(waiting_time_file=waiting_time_file, action_file=action_selection, ns=1, we=1)
+        simulator = LogicSimulator(waiting_time_file=waiting_time_file, action_file=action_selection, ns=1, we=3)
         simulator.schedulers = [
             FifoScheduler(simulator),
             LQFScheduler(simulator),
             FixedTimeScheduler(simulator, 300),
-            #FixedTimeScheduler(simulator, 100),
-            #FixedTimeScheduler(simulator, 400),
+            FixedTimeScheduler(simulator, 100),
+            FixedTimeScheduler(simulator, 400),
             #PrioWEScheduler(env)
         ]
         agent = QTable(625, len(simulator.schedulers), simulator.schedulers)
@@ -395,7 +398,7 @@ if __name__ == "__main__":
 
             for hour in simulator.waiting_time_hour_avg:
                 hour_waiting_time.writerow([hour,sum(simulator.waiting_time_hour_avg[hour])/len(simulator.waiting_time_hour_avg[hour])])
-        """
+        
         plt.subplot(4,1,1)
         plt.plot(simulator.x, simulator.ny, 'b',label='NORTH')
         plt.legend(loc='upper left')
@@ -408,9 +411,9 @@ if __name__ == "__main__":
         plt.subplot(4,1,4)
         plt.plot(simulator.x, simulator.ey, 'b',label='EAST')
         plt.legend(loc='upper left')
-        """
+        
         #plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'o', label='5min avg waiting time', markersize=1)
-        plt.plot(simulator.waiting_blob_x, simulator.waiting_blob, 'o', label='5min avg waiting time', markersize=1)
+        #plt.plot(simulator.waiting_blob_x, simulator.waiting_blob, 'o', label='5min avg waiting time', markersize=1)
         plt.legend(loc='upper left')
         plt.show()         
 

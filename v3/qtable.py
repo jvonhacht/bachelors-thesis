@@ -48,13 +48,13 @@ class QTable:
             return np.argmax(self.table[state])
 
 if __name__ == "__main__":
-    env = LogicSimulator()
+    env = LogicSimulator(ns=3, we=1)
     env.schedulers = schedulers=[
         FifoScheduler(env),
         LQFScheduler(env),
         FixedTimeScheduler(env, 300),
-        #FixedTimeScheduler(env, 100),
-        #FixedTimeScheduler(env, 500),
+        FixedTimeScheduler(env, 100),
+        FixedTimeScheduler(env, 500),
         #PrioWEScheduler(env)
     ]
     qtable = QTable(625, len(env.schedulers), env.schedulers)
