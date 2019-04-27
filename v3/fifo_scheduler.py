@@ -46,3 +46,6 @@ class FifoScheduler:
 
     def __str__(self):
         return 'Fifo scheduler'
+
+    def reset(self):
+        self.previous_lane = Direction.NONE

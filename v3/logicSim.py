@@ -18,14 +18,14 @@ from fixed_time_scheduler import FixedTimeScheduler
 from lqf_scheduler import LQFScheduler
 #from dqn_scheduler import DQNScheduler
 #from random_scheduler import RandomScheduler
-from qtable import QTable
+#from qtable import QTable
 
 class LogicSimulator:
 
     # PARAMETERS
     time_steps_per_hour = 18000                    
 
-    def __init__(self, waiting_time_file=None, schedulers=[], action_file=None):       
+    def __init__(self, waiting_time_file=None, schedulers=[], action_file=None, ns=1, we=1):       
         # init simulation counter
         self.time = 0
 
@@ -46,7 +46,7 @@ class LogicSimulator:
         self.traffic_function = self.fit_curve(plot=False)     
 
         # controlling schedule delays
-        self.time_between_cars = 10
+        self.time_between_cars = 5
         self.time_between_lane_switch = 45
         self.lane_switch_counter = 0   
 
@@ -66,7 +66,20 @@ class LogicSimulator:
         self.waiting_data_x = []
         self.waiting_time_file = waiting_time_file
         self.action_file = action_file
-        #self.action = []                    
+        #self.action = []  
+        self.waiting_time_hour_avg = {}
+        for i in range(0, 24):
+            self.waiting_time_hour_avg[i] = []  
+        self.waiting_blob = []
+        self.waiting_blob_x = []  
+        self.ns = ns
+        self.we = we          
+
+        # remove
+        self.car_hour_count = {}
+        for i in range(0, 24):
+            self.car_hour_count[i] = 0
+        self.fml = 0
                     
     def get_state(self):
         """
@@ -81,16 +94,19 @@ class LogicSimulator:
         multiplier = [1, 5, 25, 125]
         for index, key in enumerate(self.lanes):
             number_of_cars = self.lanes[key].size()
+            #print(number_of_cars)
             if (number_of_cars == 0):
                 pass
             elif (number_of_cars > 0 and number_of_cars <= 5):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (number_of_cars > 5 and number_of_cars <= 12):
+            elif (number_of_cars > 5 and number_of_cars <= 40):
                 state += Traffic.MEDIUM.value * multiplier[index]
-            elif (number_of_cars > 12 and number_of_cars <= 20):
+            elif (number_of_cars > 40 and number_of_cars <= 100):
                 state += Traffic.HIGH.value * multiplier[index]
-            elif (number_of_cars > 20):
+            elif (number_of_cars > 100):
+                #print('here')
                 state += Traffic.V_HIGH.value * multiplier[index]
+        #print(state)
         return state
 
     def reset(self):
@@ -103,6 +119,9 @@ class LogicSimulator:
         self.removed_cars = 0
         self.time = 0
         self.summed_waiting_time = 0
+        for scheduler in self.schedulers:
+                scheduler.reset() 
+
         return self.get_state()
 
     def reset_queues(self):
@@ -167,7 +186,7 @@ class LogicSimulator:
             element[1] = element[1]/max
         return tuple_list
 
-    def stochastic_add(self, direction):
+    def stochastic_add(self, direction, multiplier=1):
         """
         Add car to a random lane following traffic probability function.
         Parameters
@@ -176,17 +195,16 @@ class LogicSimulator:
             hour of day
         """
         r_number = random.uniform(0, 1)
-        if (r_number <= self.traffic_function(self.time/self.time_steps_per_hour)): 
+        if (r_number <= self.traffic_function(self.time/self.time_steps_per_hour) * multiplier): 
             self.lanes[direction].passed_cars += 1
+            self.fml += 1
+            self.car_hour_count[int(self.time/self.time_steps_per_hour)] += 1
             if(randint(0,1) == 0):
                 self.lanes[direction].straight_right.append(self.time)
             else:
                 self.lanes[direction].left.append(self.time)
 
     def remove_car(self, direction, lane_type):
-        #print('dir: {0} lane> {1}'.format(direction, lane_type))
-        self.removed_cars += 1
-        self.waiting_data_cars += 1
         car = -1
         try:                
             if (lane_type == 'left'):
@@ -196,7 +214,15 @@ class LogicSimulator:
         except:
             return car
         self.summed_waiting_time += self.time - car
-        self.waiting_data_summed += (self.time - car)
+        self.waiting_data_summed += ((self.time - car)/self.time_steps_per_hour*60*60**2)
+        #self.waiting_time_file.writerow([self.time/self.time_steps_per_hour, (self.time - car)/self.time_steps_per_hour*60*60**2])
+        self.waiting_blob.append((self.time - car)/self.time_steps_per_hour*60*60)
+        #print(self.time - car)
+        self.waiting_blob_x.append(self.time/self.time_steps_per_hour)
+        self.removed_cars += 1
+        self.waiting_data_cars += 1
+        self.waiting_time_hour_avg[int(self.time/self.time_steps_per_hour)].append(self.time-car)
+        #print('dir: {0} lane> {1}'.format(direction, lane_type))
         return self.time - car
 
     def step(self, action):
@@ -223,19 +249,21 @@ class LogicSimulator:
         if (self.action_file != None): 
             self.action_file.writerow([self.time/self.time_steps_per_hour, action]) 
 
+        #print(action)
+        count = 0
         for _ in range(0, 600):
-            if (self.time % 100 == 0):
-                self.stochastic_add(Direction.NORTH)
-                self.stochastic_add(Direction.SOUTH)
-                self.stochastic_add(Direction.EAST)
-                self.stochastic_add(Direction.WEST)
-                
-            #print(self.time % self.time_between_cars == 0)
-            #print(self.lane_switch_counter)
+            if (self.time % 80 == 0):
+                count += 1
+                self.stochastic_add(Direction.NORTH, multiplier=self.ns)
+                self.stochastic_add(Direction.SOUTH, multiplier=self.ns)
+                self.stochastic_add(Direction.EAST, multiplier=self.we)
+                self.stochastic_add(Direction.WEST, multiplier=self.we)
+
             if (self.time % self.time_between_cars == 0 and self.lane_switch_counter == 0):
-                #print('SHCDULE')
+                print('SHCDULE')
                 scheduler_reward, switch, greened_cars = self.schedulers[action].schedule() 
-                reward += scheduler_reward
+                #print(reward)
+                reward += scheduler_reward/1000
                 cars += greened_cars
                 if (switch):
                     self.lane_switch_counter = self.time_between_lane_switch
@@ -246,6 +274,7 @@ class LogicSimulator:
             self.sy.append(self.lanes[Direction.SOUTH].size())
             self.wy.append(self.lanes[Direction.WEST].size())
             self.ey.append(self.lanes[Direction.EAST].size())
+            #print(self.lanes[Direction.NORTH].size())
 
             #print('-------')
 
@@ -258,29 +287,23 @@ class LogicSimulator:
             #print('n: {0}, s: {1}, e: {2}, w: {3}'.format(self.lanes[Direction.NORTH].size(),
             #    self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
             #    self.lanes[Direction.WEST].size()))
-            self.time += 1   
-        """
-        left_waiting_time = 0
-        left_cars = 0
-        for key in self.lanes:
-            for car in self.lanes[key].straight_right:
-                left_waiting_time -= 2*(self.time - car)**2
-                left_cars += 1
-            for car in self.lanes[key].left:
-                left_waiting_time -= 2*(self.time - car)**2
-                left_cars += 1
+            self.time += 1  
 
-        reward += left_waiting_time
-        cars += left_cars
-        """
+        #print(self.car_hour_count)  
+        #print(self.removed_cars)
+        #print(self.fml)
 
         if (cars > 0):
             reward /= cars
 
-        self.waiting_data.append(self.waiting_data_summed/self.time_steps_per_hour/self.waiting_data_cars*60*60)
+        if (self.waiting_data_cars == 0):
+            self.waiting_data_cars = 1
+        self.waiting_data.append(self.waiting_data_summed/self.waiting_data_cars)
         self.waiting_data_x.append(self.time/self.time_steps_per_hour)
         if (self.waiting_time_file != None):
-            self.waiting_time_file.writerow([self.time/self.time_steps_per_hour, self.waiting_data_summed/self.time_steps_per_hour/self.waiting_data_cars*60*60])
+            pass
+            #self.waiting_time_file.writerow([self.time/self.time_steps_per_hour, self.waiting_data_summed/self.waiting_data_cars])
+        #print(self.waiting_data_cars)
         self.waiting_data_summed = 0
         self.waiting_data_cars = 0
 
@@ -339,33 +362,39 @@ class LogicSimulator:
         pass
 
 if __name__ == "__main__":
-    scheduler = 5
+    scheduler = 0
     with open('waiting_time_{0}.csv'.format(scheduler), mode='w') as waiting_time_file, \
         open('action_selection.csv', mode='w') as action_selection:
         waiting_time_file = csv.writer(waiting_time_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         action_selection = csv.writer(action_selection, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-        simulator = LogicSimulator(waiting_time_file=waiting_time_file, action_file=action_selection)
+        simulator = LogicSimulator(waiting_time_file=waiting_time_file, action_file=action_selection, ns=1, we=1)
         simulator.schedulers = [
             FifoScheduler(simulator),
-            LQFScheduler(simulator),
+            #LQFScheduler(simulator),
             FixedTimeScheduler(simulator, 300),
-            FixedTimeScheduler(simulator, 200),
-            FixedTimeScheduler(simulator, 400),
+            FixedTimeScheduler(simulator, 150),
+            FixedTimeScheduler(simulator, 450),
             #PrioWEScheduler(env)
         ]
-        agent = QTable(256, len(simulator.schedulers), simulator.schedulers)
+        agent = QTable(625, len(simulator.schedulers), simulator.schedulers)
         agent.load_table()
         done = False     
         hour = 1
         state = simulator.get_state()
         while not done:
-            state, _, done = simulator.step(agent.act(state, greedy=False))
-            #_, _, done = simulator.step(scheduler)
+            #state, _, done = simulator.step(agent.act(state, greedy=False))
+            _, _, done = simulator.step(scheduler)
             if (simulator.time % simulator.time_steps_per_hour == 0):
                 print('Simulating hour: {0}'.format(hour))
                 simulator.save_stats()
                 hour += 1
+
+        with open('hour_waiting_time.csv', mode='w') as hour_waiting_time:
+            hour_waiting_time = csv.writer(hour_waiting_time, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+            for hour in simulator.waiting_time_hour_avg:
+                hour_waiting_time.writerow([hour,sum(simulator.waiting_time_hour_avg[hour])/len(simulator.waiting_time_hour_avg[hour])])
         """
         plt.subplot(4,1,1)
         plt.plot(simulator.x, simulator.ny, 'b',label='NORTH')
@@ -381,6 +410,7 @@ if __name__ == "__main__":
         plt.legend(loc='upper left')
         """
         plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'o', label='5min avg waiting time', markersize=1)
+        #plt.plot(simulator.waiting_blob_x, simulator.waiting_blob, 'o', label='5min avg waiting time', markersize=1)
         plt.legend(loc='upper left')
         plt.show()         
 

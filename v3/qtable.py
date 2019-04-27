@@ -1,4 +1,4 @@
-#from logicSim import LogicSimulator
+from logicSim import LogicSimulator
 
 from fifo_scheduler import FifoScheduler
 from lqf_scheduler import LQFScheduler
@@ -11,6 +11,7 @@ import random
 import time
 import csv
 from entities import Direction
+from matplotlib import pyplot as plt
 
 class QTable:
     def __init__(self, height, width, action_space):
@@ -50,10 +51,11 @@ if __name__ == "__main__":
     env = LogicSimulator()
     env.schedulers = schedulers=[
         FifoScheduler(env),
-        LQFScheduler(env),
+        #LQFScheduler(simulator),
         FixedTimeScheduler(env, 300),
         FixedTimeScheduler(env, 150),
         FixedTimeScheduler(env, 450),
+        #PrioWEScheduler(env)
     ]
     qtable = QTable(625, len(env.schedulers), env.schedulers)
 
@@ -69,12 +71,27 @@ if __name__ == "__main__":
                     actions_taken[i] = 0
                 done = False
 
+                fml = 0
                 while not done:
                     #print(state)
-                    action = qtable.act(state)
+                    action = int(qtable.act(state))
+                    print(action)
+                    if (fml == 1):
+                        fml = 0
+                        action = 1
+                    else:
+                        action = 0
+                        fml += 1
+                    print()
                     next_state, reward, done = env.step(action)
                     #print('state: {0}, next: {1} time: {2}'.format(state, next_state, env.time/env.time_steps_per_hour))
-                    #print('action: {0} reward: {1}'.format(action, reward))
+                    print('action: {0} reward: {1} time: {2} cars: {3} rm: {4}'.format(
+                        action, 
+                        reward, 
+                        round(env.time/env.time_steps_per_hour, 2), 
+                        env.get_car_amount(),
+                        env.removed_cars)
+                    )
                     # stats
                     previous_states[state] = previous_states.get(state, 0) + 1
                     actions_taken[action] += 1
@@ -117,4 +134,17 @@ if __name__ == "__main__":
                 waiting_times.writerow([str(round(env.summed_waiting_time/env.removed_cars, 4))])
                 print()
                 print('-----------------------------------')
+                plt.subplot(4,1,1)
+                plt.plot(env.x, env.ny, 'b',label='NORTH')
+                plt.legend(loc='upper left')
+                plt.subplot(4,1,2)
+                plt.plot(env.x, env.sy, 'b',label='SOUTH')
+                plt.legend(loc='upper left')
+                plt.subplot(4,1,3)
+                plt.plot(env.x, env.wy, 'b',label='WEST')
+                plt.legend(loc='upper left')
+                plt.subplot(4,1,4)
+                plt.plot(env.x, env.ey, 'b',label='EAST')
+                plt.legend(loc='upper left')
+                plt.show()
 
