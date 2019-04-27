@@ -1,4 +1,4 @@
-from logicSim import LogicSimulator
+#from logicSim import LogicSimulator
 
 from fifo_scheduler import FifoScheduler
 from lqf_scheduler import LQFScheduler
@@ -51,10 +51,10 @@ if __name__ == "__main__":
     env = LogicSimulator()
     env.schedulers = schedulers=[
         FifoScheduler(env),
-        #LQFScheduler(simulator),
+        LQFScheduler(env),
         FixedTimeScheduler(env, 300),
-        FixedTimeScheduler(env, 150),
-        FixedTimeScheduler(env, 450),
+        #FixedTimeScheduler(env, 100),
+        #FixedTimeScheduler(env, 500),
         #PrioWEScheduler(env)
     ]
     qtable = QTable(625, len(env.schedulers), env.schedulers)

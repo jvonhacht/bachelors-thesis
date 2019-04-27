@@ -40,3 +40,7 @@ class LQFScheduler:
 
     def __str__(self):
         return 'LQF scheduler'
+
+    def reset(self):
+        self.previous_direction = Direction.NONE
+        self.switch = False

@@ -18,7 +18,7 @@ from fixed_time_scheduler import FixedTimeScheduler
 from lqf_scheduler import LQFScheduler
 #from dqn_scheduler import DQNScheduler
 #from random_scheduler import RandomScheduler
-#from qtable import QTable
+from qtable import QTable
 
 class LogicSimulator:
 
@@ -97,13 +97,13 @@ class LogicSimulator:
             #print(number_of_cars)
             if (number_of_cars == 0):
                 pass
-            elif (number_of_cars > 0 and number_of_cars <= 5):
+            elif (number_of_cars > 0 and number_of_cars <= 3):
                 state += Traffic.LOW.value * multiplier[index]
-            elif (number_of_cars > 5 and number_of_cars <= 40):
+            elif (number_of_cars > 3 and number_of_cars <= 8):
                 state += Traffic.MEDIUM.value * multiplier[index]
-            elif (number_of_cars > 40 and number_of_cars <= 100):
+            elif (number_of_cars > 8 and number_of_cars <= 15):
                 state += Traffic.HIGH.value * multiplier[index]
-            elif (number_of_cars > 100):
+            elif (number_of_cars > 15):
                 #print('here')
                 state += Traffic.V_HIGH.value * multiplier[index]
         #print(state)
@@ -362,7 +362,7 @@ class LogicSimulator:
         pass
 
 if __name__ == "__main__":
-    scheduler = 0
+    scheduler = 1
     with open('waiting_time_{0}.csv'.format(scheduler), mode='w') as waiting_time_file, \
         open('action_selection.csv', mode='w') as action_selection:
         waiting_time_file = csv.writer(waiting_time_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -371,10 +371,10 @@ if __name__ == "__main__":
         simulator = LogicSimulator(waiting_time_file=waiting_time_file, action_file=action_selection, ns=1, we=1)
         simulator.schedulers = [
             FifoScheduler(simulator),
-            #LQFScheduler(simulator),
+            LQFScheduler(simulator),
             FixedTimeScheduler(simulator, 300),
-            FixedTimeScheduler(simulator, 150),
-            FixedTimeScheduler(simulator, 450),
+            #FixedTimeScheduler(simulator, 100),
+            #FixedTimeScheduler(simulator, 400),
             #PrioWEScheduler(env)
         ]
         agent = QTable(625, len(simulator.schedulers), simulator.schedulers)
@@ -409,8 +409,8 @@ if __name__ == "__main__":
         plt.plot(simulator.x, simulator.ey, 'b',label='EAST')
         plt.legend(loc='upper left')
         """
-        plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'o', label='5min avg waiting time', markersize=1)
-        #plt.plot(simulator.waiting_blob_x, simulator.waiting_blob, 'o', label='5min avg waiting time', markersize=1)
+        #plt.plot(simulator.waiting_data_x, simulator.waiting_data, 'o', label='5min avg waiting time', markersize=1)
+        plt.plot(simulator.waiting_blob_x, simulator.waiting_blob, 'o', label='5min avg waiting time', markersize=1)
         plt.legend(loc='upper left')
         plt.show()         
 
