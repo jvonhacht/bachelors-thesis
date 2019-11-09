@@ -17,6 +17,6 @@ There are multiple iterations of the project as it developed over time and metho
 
 - **V1** contains a program for simulating the intersection where the intersection is divided into 9 occupation squares. A car can move from one square to the other and two cars can never be on the same square. This simulation was scrapped in order to simplify the problem due to time constraints.
 
-- **V2** utilisess a simplified simulation where cars are logical occupiers and where each lane is simply a queue that can be emptied. However, in this version a DQN was used to schedule each indpendent lane in the intersection. This method did not end up getting used since the results were worse than a normal fixed scheduler and there was not enough time to research and improve it.
+- **V2** utilises a simplified simulation where cars are logical occupiers and where each lane is simply a queue that can be emptied. However, in this version a DQN was used to schedule each indpendent lane in the intersection. This method did not end up getting used since the results were worse than a normal fixed scheduler and there was not enough time to research and improve it.
 
 - **V3** utilises the same simulation from V2 but instead of a DQN a QTable was used instead. The QTable could then choose between a few different pre-defined scheduling methods for the current traffic environment. The report is based on this version of the project.

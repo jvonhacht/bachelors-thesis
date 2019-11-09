@@ -94,6 +94,9 @@ class LogicSimulator:
         return state
 
     def reset(self):
+        """
+        Reset the environment.
+        """     
         self.lanes = {
             Direction.NORTH: Lane('North'),
             Direction.SOUTH: Lane('South'),
@@ -103,9 +106,13 @@ class LogicSimulator:
         self.removed_cars = 0
         self.time = 0
         self.summed_waiting_time = 0
+
         return self.get_state()
 
     def reset_queues(self):
+        """
+        Empty the cars in each lane.
+        """   
         for key in self.lanes:
             self.lanes[key].left.clear()
             self.lanes[key].straight_right.clear()
@@ -113,6 +120,7 @@ class LogicSimulator:
     def fit_curve(self, plot=False):
         """
         Fit a curve to traffic data points.
+
         Parameters
         ----------
         graph : bool
@@ -150,6 +158,7 @@ class LogicSimulator:
     def normalize_tuple_y(self, tuple_list):
         """
         Normalize the second value (y value) in the tuple.
+
         Parameters
         ----------
         tuple_list : list
@@ -170,6 +179,7 @@ class LogicSimulator:
     def stochastic_add(self, direction):
         """
         Add car to a random lane following traffic probability function.
+
         Parameters
         ----------
         hour : float
@@ -259,20 +269,6 @@ class LogicSimulator:
             #    self.lanes[Direction.SOUTH].size(), self.lanes[Direction.EAST].size(),
             #    self.lanes[Direction.WEST].size()))
             self.time += 1   
-        """
-        left_waiting_time = 0
-        left_cars = 0
-        for key in self.lanes:
-            for car in self.lanes[key].straight_right:
-                left_waiting_time -= 2*(self.time - car)**2
-                left_cars += 1
-            for car in self.lanes[key].left:
-                left_waiting_time -= 2*(self.time - car)**2
-                left_cars += 1
-
-        reward += left_waiting_time
-        cars += left_cars
-        """
 
         if (cars > 0):
             reward /= cars

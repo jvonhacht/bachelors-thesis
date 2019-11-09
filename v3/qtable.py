@@ -1,4 +1,4 @@
-#from logicSim import LogicSimulator
+from logicSim import LogicSimulator
 
 from fifo_scheduler import FifoScheduler
 from lqf_scheduler import LQFScheduler
@@ -48,6 +48,7 @@ class QTable:
 
 if __name__ == "__main__":
     env = LogicSimulator()
+    # schedulers it can choose between
     env.schedulers = schedulers=[
         FifoScheduler(env),
         LQFScheduler(env),
@@ -57,64 +58,60 @@ if __name__ == "__main__":
     ]
     qtable = QTable(625, len(env.schedulers), env.schedulers)
 
-    with open('action_stats.csv', mode='w') as action_stats:
-        with open('waiting_times.csv', mode='w') as waiting_times:
-            action_stats = csv.writer(action_stats, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            waiting_times = csv.writer(waiting_times, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            previous_states = {}
-            for e in range(0, qtable.episodes+1):
-                state = env.reset()
-                actions_taken = {}
-                for i in range(0, len(env.schedulers)):
-                    actions_taken[i] = 0
-                done = False
+    with open('action_stats.csv', 'waiting_times.csv', mode='w') as action_stats, waiting_times:
+        action_stats = csv.writer(action_stats, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        waiting_times = csv.writer(waiting_times, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        previous_states = {}
+        for e in range(0, qtable.episodes+1):
+            state = env.reset()
+            actions_taken = {}
+            for i in range(0, len(env.schedulers)):
+                actions_taken[i] = 0
+            done = False
 
-                while not done:
-                    #print(state)
-                    action = qtable.act(state)
-                    next_state, reward, done = env.step(action)
-                    #print('state: {0}, next: {1} time: {2}'.format(state, next_state, env.time/env.time_steps_per_hour))
-                    #print('action: {0} reward: {1}'.format(action, reward))
-                    # stats
-                    previous_states[state] = previous_states.get(state, 0) + 1
-                    actions_taken[action] += 1
-                    if (random.randint(0,1) == 0):
-                        old_value = qtable.table[state, action]
-                        next_max = np.argmax(qtable.table[next_state])
-                        #print(state)
+            # loop until end of day, i.e. done
+            while not done:
+                action = qtable.act(state)
+                next_state, reward, done = env.step(action)
 
-                        # Update the new value
-                        new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
-                            (reward + qtable.gamma * qtable.table_b[next_state, next_max] - old_value)
-                        #print('state: {0} action: {1}'.format(state, action))
-                        qtable.table[state, action] = new_value
-                    else:
-                        old_value = qtable.table_b[state, action]
-                        next_max = np.argmax(qtable.table_b[next_state])
-                        #print(state)
+                # stats
+                previous_states[state] = previous_states.get(state, 0) + 1
+                actions_taken[action] += 1
 
-                        # Update the new value
-                        new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
-                            (reward + qtable.gamma * qtable.table[next_state, next_max] - old_value)
-                        #print('state: {0} action: {1}'.format(state, action))
-                        qtable.table_b[state, action] = new_value
-                    state = next_state
-                    #env.reset_queues()
+                # double Q-learning, alternate which table to use
+                if (random.randint(0,1) == 0):
+                    old_value = qtable.table[state, action]
+                    next_max = np.argmax(qtable.table[next_state])
 
-                    if (qtable.epsilon > qtable.epsilon_min):
-                        qtable.epsilon *= qtable.epsilon_decay
-                qtable.save_table()
-                print('Episode {0}/{1} epsilon: {2}'.format(e, qtable.episodes, qtable.epsilon))
-                #print(sorted(previous_states))
-                #print(previous_states[255])
-                #print(table)
-                tot = sum(actions_taken.values())
-                csv_data = []
-                for key in sorted(actions_taken.keys()):
-                    print(''.join((str(round(float(actions_taken[key])/float(tot) * 100, 2)), '%')), end=" ")
-                    csv_data.append(round(float(actions_taken[key])/float(tot) * 100, 2))
-                action_stats.writerow(csv_data)
-                waiting_times.writerow([str(round(env.summed_waiting_time/env.removed_cars, 4))])
-                print()
-                print('-----------------------------------')
+                    # Update the new value
+                    new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
+                        (reward + qtable.gamma * qtable.table_b[next_state, next_max] - old_value)
+                    #print('state: {0} action: {1}'.format(state, action))
+                    qtable.table[state, action] = new_value
+                else:
+                    old_value = qtable.table_b[state, action]
+                    next_max = np.argmax(qtable.table_b[next_state])
+
+                    # Update the new value
+                    new_value = (1 - qtable.alpha) * old_value + qtable.alpha * \
+                        (reward + qtable.gamma * qtable.table[next_state, next_max] - old_value)
+                    #print('state: {0} action: {1}'.format(state, action))
+                    qtable.table_b[state, action] = new_value
+                state = next_state
+
+                if (qtable.epsilon > qtable.epsilon_min):
+                    qtable.epsilon *= qtable.epsilon_decay
+            qtable.save_table()
+
+            # print episode statistics
+            print('Episode {0}/{1} epsilon: {2}'.format(e, qtable.episodes, qtable.epsilon))
+            tot = sum(actions_taken.values())
+            csv_data = []
+            for key in sorted(actions_taken.keys()):
+                print(''.join((str(round(float(actions_taken[key])/float(tot) * 100, 2)), '%')), end=" ")
+                csv_data.append(round(float(actions_taken[key])/float(tot) * 100, 2))
+            action_stats.writerow(csv_data)
+            waiting_times.writerow([str(round(env.summed_waiting_time/env.removed_cars, 4))])
+            print()
+            print('-----------------------------------')
 
